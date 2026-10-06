@@ -8,16 +8,16 @@ import * as THREE from 'three'
 
 // --- shared materials -------------------------------------------------------
 const M = {
-  potholeDark: new THREE.MeshStandardMaterial({ color: 0x0f0f12, roughness: 1 }),
+  potholeBrown: new THREE.MeshStandardMaterial({ color: 0x5c3d24, roughness: 1 }),
   danfoYellow: new THREE.MeshStandardMaterial({ color: 0xf5c400, roughness: 0.7 }),
   stripeBlack: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.3, metalness: 0.2 }),
   tyre: new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 1 }),
 } as const
 
-/** Flat dark disc lying on the road — a pothole. 2D, faces up. */
+/** Flat brown disc lying on the road — a pothole. 2D, faces up. */
 export function buildPothole(): THREE.Object3D {
-  const m = new THREE.Mesh(new THREE.CircleGeometry(0.9, 20), M.potholeDark)
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.9, 20), M.potholeBrown)
   m.rotation.x = -Math.PI / 2
   m.position.y = 0.03
   return m

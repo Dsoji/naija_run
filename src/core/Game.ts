@@ -38,6 +38,7 @@ export class Game {
   private readonly debugEl: HTMLElement
   private readonly pauseBtn: HTMLButtonElement
   private paused = false
+  private money = 0
   private frames = 0
   private fpsAccum = 0
   private fps = 0
@@ -162,6 +163,7 @@ export class Game {
     this.clock.resync()
     this.paused = false
     this.pauseBtn.hidden = false
+    this.money = 0
     this.hud.show()
     this.hud.setDistance(0)
     this.hud.setMoney(0)
@@ -199,7 +201,16 @@ export class Game {
       this.player.update(dt)
       if (this.state === 'RUNNING') {
         const tile = this.track.committed[this.player.currentIndex]
-        if (tile && this.obstacles.collide(this.player, tile)) this.player.kill()
+        if (tile) {
+          const hit = this.obstacles.collide(this.player, tile)
+          if (hit.kind === 'crash') {
+            this.player.kill()
+          } else if (hit.kind === 'stumble') {
+            this.player.stumble()
+            this.money = Math.max(0, this.money - hit.penalty)
+            this.hud.setMoney(this.money)
+          }
+        }
       }
       if (this.state === 'RUNNING') {
         const removed = this.track.update(this.player.currentIndex)

@@ -41,6 +41,11 @@ export const CONFIG = {
   CHASE_STUMBLE: -5,
   CHASE_MARKET_EXIT: 15,
 
+  // --- Stumble (hitting a soft obstacle like a pothole) --------------------
+  STUMBLE_TIME: 1.0, // seconds to recover full speed after a stumble
+  STUMBLE_SPEED: 0.5, // speed multiplier at the moment of a stumble
+  POTHOLE_PENALTY: 50, // ₦ lost when you hit a pothole
+
   // --- Player visuals & lane feel (Phase 1) --------------------------------
   LANE_LERP: 0.12, // seconds-ish smoothing for lane changes
   PLAYER_RADIUS: 0.45, // collider half-width (used from Phase 2)

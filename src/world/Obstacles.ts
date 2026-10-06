@@ -21,12 +21,16 @@ interface KindDef {
   halfLateral: number
   clearHeight: number
   perLane: boolean // true = occupies a single lane (player can dodge sideways)
+  onHit: ObstacleBox['onHit']
+  penalty: number
 }
 
 const KINDS: KindDef[] = [
-  { model: 'pothole', action: 'JUMP', halfAlong: 0.9, halfLateral: 0.9, clearHeight: 0.4, perLane: true },
-  { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, perLane: true },
+  { model: 'pothole', action: 'JUMP', halfAlong: 0.9, halfLateral: 0.9, clearHeight: 0.4, perLane: true, onHit: 'stumble', penalty: CONFIG.POTHOLE_PENALTY },
+  { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, perLane: true, onHit: 'crash', penalty: 0 },
 ]
+
+export type Collision = { kind: 'none' } | { kind: 'crash' } | { kind: 'stumble'; penalty: number }
 
 export class Obstacles {
   private straightCount = 0
@@ -58,11 +62,15 @@ export class Obstacles {
       halfLateral: kind.halfLateral,
       action: kind.action,
       clearHeight: kind.clearHeight,
+      onHit: kind.onHit,
+      penalty: kind.penalty,
     })
   }
 
-  /** Returns true if the player is hit (a crash) on this tile this frame. */
-  collide(player: Player, tile: TileInfo): boolean {
+  /** Resolve the player against this tile's obstacles for one frame. A crash
+   *  takes priority; a stumble fires at most once per obstacle. */
+  collide(player: Player, tile: TileInfo): Collision {
+    let stumble: Collision | null = null
     for (const ob of tile.obstacles) {
       const dAlong = Math.abs(player.distAlong - ob.along)
       const dLat = Math.abs(player.lateral - ob.lateral)
@@ -70,16 +78,17 @@ export class Obstacles {
         dAlong < ob.halfAlong + PLAYER_HALF_ALONG && dLat < ob.halfLateral + CONFIG.PLAYER_RADIUS
       if (!overlaps) continue
 
-      if (ob.action === 'JUMP') {
-        if (player.airborneY < ob.clearHeight) return true
-      } else if (ob.action === 'SLIDE') {
-        if (!player.isSliding) return true
-      } else {
-        // LANE: being in its lane is a crash (too tall to jump).
-        return true
+      // Cleared? (jump high enough, or sliding under, as required)
+      if (ob.action === 'JUMP' && player.airborneY >= ob.clearHeight) continue
+      if (ob.action === 'SLIDE' && player.isSliding) continue
+
+      if (ob.onHit === 'crash') return { kind: 'crash' }
+      if (!ob.hit) {
+        ob.hit = true
+        stumble = { kind: 'stumble', penalty: ob.penalty }
       }
     }
-    return false
+    return stumble ?? { kind: 'none' }
   }
 }
 

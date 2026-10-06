@@ -40,6 +40,7 @@ export class Player {
   distAlong = 0
   distance = 0
   private speed: number = CONFIG.BASE_SPEED
+  private slowFactor = 1 // < 1 right after a stumble, eases back to 1
 
   private turnLocked = false
   private pivoted = false
@@ -89,6 +90,7 @@ export class Player {
     this.distAlong = 0
     this.distance = 0
     this.speed = CONFIG.BASE_SPEED
+    this.slowFactor = 1
     this.turnLocked = false
     this.pivoted = false
     this.buffered = null
@@ -123,6 +125,12 @@ export class Player {
   /** Kill the player from an external cause (obstacle hit). */
   kill(): void {
     if (this.state !== 'DEAD') this.crash()
+  }
+
+  /** Trip over a soft obstacle: lose speed briefly (recovers over STUMBLE_TIME). */
+  stumble(): void {
+    if (this.state === 'DEAD') return
+    this.slowFactor = Math.min(this.slowFactor, CONFIG.STUMBLE_SPEED)
   }
   private get currentTile(): TileInfo {
     return this.track.committed[this.currentIndex]
@@ -195,9 +203,11 @@ export class Player {
       else if (this.distAlong >= TURN_START && !this.pivoted) this.lockTurn(this.buffered.side)
     }
 
-    // Speed + distance.
+    // Speed + distance. The ramp climbs toward MAX; slowFactor recovers from a
+    // stumble over STUMBLE_TIME and multiplies the effective speed.
     this.speed = Math.min(CONFIG.MAX_SPEED, this.speed + CONFIG.SPEED_RAMP * sdt)
-    const move = this.speed * sdt
+    this.slowFactor = Math.min(1, this.slowFactor + dt / CONFIG.STUMBLE_TIME)
+    const move = this.speed * this.slowFactor * sdt
     const prev = this.distAlong
     this.distAlong += move
     this.distance += move

@@ -49,6 +49,9 @@ export interface ObstacleBox {
   halfLateral: number
   action: 'JUMP' | 'SLIDE' | 'LANE' // how the player clears it
   clearHeight: number // for JUMP: min airborne height that clears it
+  onHit: 'crash' | 'stumble' // what happens if the player fails to clear it
+  penalty: number // ₦ lost on a stumble
+  hit?: boolean // set once a stumble has been consumed (so it fires only once)
 }
 
 export interface Cell {

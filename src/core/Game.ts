@@ -2,18 +2,19 @@
 // Phase 1: INTRO → RUNNING → GAMEOVER with track, player, camera and input.
 
 import * as THREE from 'three'
+import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
 import { Track } from '../world/Track'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
+import { HUD } from '../ui/HUD'
 
 export type GameState = 'INTRO' | 'RUNNING' | 'ENCOUNTER' | 'CAUGHT' | 'GAMEOVER'
 
 export interface GameHooks {
   mount: HTMLElement // canvas host (the game area)
-  hud: HTMLElement // live stats line
   readBest: () => number
   writeBest: (v: number) => void
 }
@@ -29,6 +30,7 @@ export class Game {
   private readonly rig: CameraRig
   private readonly input: Input
   private readonly screens: Screens
+  private readonly hud: HUD
   private readonly ground: THREE.Mesh
 
   private readonly debugEl: HTMLElement
@@ -44,12 +46,16 @@ export class Game {
     const w = hooks.mount.clientWidth
     const h = hooks.mount.clientHeight
 
-    this.scene.background = new THREE.Color(0x7ec8ff)
+    const sky = new THREE.Color(0x8fd0ff)
+    this.scene.background = sky
+    this.scene.fog = new THREE.Fog(sky.getHex(), 35, 135) // hides tile pop-in (spec §9)
 
     this.camera = new THREE.PerspectiveCamera(70, w / h, 0.1, 400)
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.setSize(w, h)
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.15
     hooks.mount.appendChild(this.renderer.domElement)
 
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a44, 1.0))
@@ -70,6 +76,8 @@ export class Game {
     this.player = new Player(this.scene, this.track, this.clock, () => this.onCrash())
     this.rig = new CameraRig(this.camera)
     this.screens = new Screens(hooks.mount)
+    this.hud = new HUD(hooks.mount)
+    this.hud.hide()
 
     // Debug overlay element (hidden unless toggled).
     this.debugEl = document.createElement('div')
@@ -149,6 +157,10 @@ export class Game {
     this.clock.resync()
     this.paused = false
     this.pauseBtn.hidden = false
+    this.hud.show()
+    this.hud.setDistance(0)
+    this.hud.setMoney(0)
+    this.hud.setChase(CONFIG.CHASE_START)
     this.state = 'RUNNING'
   }
 
@@ -185,7 +197,7 @@ export class Game {
         this.player.currentIndex -= removed
         this.rig.update(this.player, dt)
         this.ground.position.set(this.player.position.x, -0.2, this.player.position.z)
-        this.hooks.hud.textContent = `${Math.round(this.player.distance)}m`
+        this.hud.setDistance(this.player.distance)
       }
     }
 

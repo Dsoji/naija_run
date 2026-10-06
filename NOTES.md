@@ -70,6 +70,30 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
   `TURN_BUFFER_MS`. Pivot happens at centre; missing a required turn crashes.
 - Auth is now non-blocking: the game boots even if Clerk fails to load (guest).
 
+## Modeling approach (decided 2026-10-06)
+
+- **2.5D hybrid.** Flat, lit, fog-enabled cutout planes (`alphaTest`, not raw
+  Sprites) for ground decals, ₦ notes, clue icon, overhead slide-banners,
+  signage and crowd filler; composed **3D low-poly** for vehicles (danfo, keke,
+  police car), goat, barricades and the main NPCs — they're seen from changing
+  angles as the camera turns 90°, so they need real depth.
+- Rendering notes: avoid upright *fixed-orientation* 2D (vanishes edge-on in a
+  turn); ground-flat 2D is fine; camera-facing billboards read "cardboard".
+- **Collision is decoupled from the visual.** Each obstacle declares a collider
+  box (in the tile's along/lateral frame) + required action (jump/slide/lane),
+  independent of whether it's drawn as a 2D plane, 3D mesh or glb.
+- Everything goes through a **model registry** (added in Phase 2.2) so any piece
+  can be swapped to a `.glb` later without touching game logic.
+
+## Phase 2 breakdown
+
+- 2.1 HUD (distance, ₦ shell, chase-bar shell) + fog + ACESFilmic tone mapping.
+- 2.2 Tile-content attach/recycle + model registry + first obstacles + AABB
+  collision (hit = crash, correct action = pass).
+- 2.3 Full obstacle set + fair-spawn rules + difficulty density ramp.
+- 2.4 ₦ pickups (magnet, counter, HUD, persistence of total ₦).
+- 2.5 Clues + toasts + stumble on side-swipe.
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

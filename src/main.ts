@@ -9,9 +9,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <span class="brand">NAIJA&nbsp;RUN</span>
     <nav id="auth-controls" class="auth-controls" aria-label="Account"></nav>
   </header>
-  <main id="game" class="game">
-    <div id="hud" class="hud">0m</div>
-  </main>
+  <main id="game" class="game"></main>
 `
 
 // --- Clerk: load in the background so gameplay never blocks on auth. ---------
@@ -40,7 +38,6 @@ function writeBest(v: number): void {
 // --- Boot the game. ----------------------------------------------------------
 new Game({
   mount: document.getElementById('game')!,
-  hud: document.getElementById('hud')!,
   readBest,
   writeBest,
 })

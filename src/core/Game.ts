@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
+import { Sfx } from './Sfx'
 import { rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo } from '../world/Tile'
 import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
 import { Track } from '../world/Track'
@@ -66,6 +67,8 @@ export class Game {
 
   private readonly debugEl: HTMLElement
   private readonly pauseBtn: HTMLButtonElement
+  private readonly muteBtn: HTMLButtonElement
+  private readonly sfx = new Sfx()
   private paused = false
   private money = 0
   private catching = false
@@ -152,6 +155,19 @@ export class Game {
     this.pauseBtn.addEventListener('click', () => this.togglePause())
     hooks.mount.appendChild(this.pauseBtn)
 
+    // Mute toggle (always visible).
+    this.muteBtn = document.createElement('button')
+    this.muteBtn.type = 'button'
+    this.muteBtn.className = 'mute-btn'
+    this.muteBtn.setAttribute('aria-label', 'Mute')
+    this.muteBtn.textContent = this.sfx.muted ? '🔇' : '🔊'
+    this.muteBtn.addEventListener('click', () => {
+      this.sfx.resume()
+      this.sfx.setMuted(!this.sfx.muted)
+      this.muteBtn.textContent = this.sfx.muted ? '🔇' : '🔊'
+    })
+    hooks.mount.appendChild(this.muteBtn)
+
     this.input = new Input(hooks.mount, (a) => this.onAction(a))
 
     window.addEventListener('resize', () => this.onResize())
@@ -204,6 +220,7 @@ export class Game {
         break
       case 'up':
         this.player.onJump()
+        this.sfx.play('jump')
         break
       case 'down':
         this.player.onSlide()
@@ -215,6 +232,8 @@ export class Game {
 
   private start(): void {
     this.screens.hide()
+    this.sfx.resume()
+    this.sfx.startMusic()
     this.obstacles.reset()
     this.chase.reset()
     this.thief.reset()
@@ -261,6 +280,7 @@ export class Game {
   private openEncounter(e: EncounterInstance): void {
     this.inEncounter = true
     this.activeEncounter = e
+    this.sfx.play('horn')
     // Owner override of spec §7: fully pause the world while the choice timer
     // (real-time, in DialogueUI) counts down, instead of slow-mo.
     this.clock.setTimeScale(0, true)
@@ -399,6 +419,7 @@ export class Game {
       this.scene.add(this.policeCar)
     }
     this.policeCar.visible = true
+    this.sfx.play('siren')
     this.hud.toast('POLICE ASSIST!', 'info')
   }
 
@@ -474,6 +495,7 @@ export class Game {
   }
 
   private endRunCleanup(): void {
+    this.sfx.stopMusic()
     this.dialogue.close()
     this.inEncounter = false
     this.activeEncounter = null
@@ -504,6 +526,7 @@ export class Game {
     this.state = 'GAMEOVER'
     this.paused = false
     this.pauseBtn.hidden = true
+    this.sfx.play('crash')
     this.endRunCleanup()
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
@@ -547,6 +570,7 @@ export class Game {
               this.money += got.money
               this.hud.setMoney(this.money)
               this.hud.popMoney()
+              this.sfx.play('pickup')
             }
             for (const clue of got.clues) {
               this.chase.add(CONFIG.CHASE_CLUE)

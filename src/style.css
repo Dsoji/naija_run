@@ -462,6 +462,26 @@ a,
   background: rgba(0, 0, 0, 0.6);
 }
 
+.mute-btn {
+  position: absolute;
+  left: calc(0.75rem + env(safe-area-inset-left));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 18;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #e6edf3;
+  font-size: 1.1rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mute-btn:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
 /* --- Debug overlay (backtick key) ------------------------------------------ */
 .debug-overlay {
   position: absolute;

@@ -47,6 +47,9 @@ const ONCOMING: KindDef[] = [
   { model: 'keke', action: 'LANE', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true },
 ]
 
+const STALL: KindDef = { model: 'stall', action: 'LANE', halfAlong: 0.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true }
+const MARKET_KINDS: KindDef[] = [STALL, PER_LANE.keke, PER_LANE.barricade, PER_LANE.pothole, GOAT]
+
 export type Collision = { kind: 'none' } | { kind: 'crash' } | { kind: 'stumble'; penalty: number }
 
 export class Obstacles {
@@ -61,6 +64,23 @@ export class Obstacles {
   /** Current run distance, used to ramp density (tiles spawn ahead of here). */
   setDistance(d: number): void {
     this.distance = d
+  }
+
+  /** Dense market-corridor obstacles (spec §5/§7): stalls, kekes, banners,
+   *  potholes, goats — always something, often two lanes, never all three. */
+  decorateMarket(info: TileInfo): void {
+    const along = 8 + Math.random() * 4
+    if (Math.random() < 0.22) {
+      this.add(info, BANNER, along, 0) // slide gate
+      return
+    }
+    const n = Math.random() < 0.55 ? 2 : 1
+    const lanes = shuffle([...LANES]).slice(0, n)
+    for (const lane of lanes) {
+      const kind = MARKET_KINDS[Math.floor(Math.random() * MARKET_KINDS.length)]
+      if (kind === GOAT) this.add(info, kind, along, lane, { drift: (Math.random() < 0.5 ? 1 : -1) * CONFIG.GOAT_SPEED })
+      else this.add(info, kind, along, lane)
+    }
   }
 
   /** Called by Track for each STRAIGHT tile as it is created. */

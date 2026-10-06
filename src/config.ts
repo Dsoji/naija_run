@@ -49,6 +49,7 @@ export const CONFIG = {
   CHASE_MARKET_EXIT: 15,
   CATCH_DISTANCE: 120, // metres of clean runway to the stuck thief when chase hits 100
   CATCH_REACH: 6, // metres from the thief that counts as CAUGHT
+  MARKET_LEN: 7, // tiles in a Nero market shortcut section
 
   // --- ₦ pickups ------------------------------------------------------------
   MAGNET: 0.8, // metres: notes within this planar distance are collected

@@ -338,7 +338,31 @@ export function buildPoliceCar(): THREE.Object3D {
   return g
 }
 
-export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
+/** A market stall blocking a lane: a goods box under a colourful canopy. */
+export function buildStall(): THREE.Object3D {
+  const g = new THREE.Group()
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.0, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 1 }),
+  )
+  box.position.y = 0.55
+  const canopy = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 0.2, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 1 }),
+  )
+  canopy.position.y = 1.2
+  g.add(box, canopy)
+  return g
+}
+
+export type ModelKind =
+  | 'pothole'
+  | 'danfo'
+  | 'keke'
+  | 'barricade'
+  | 'banner'
+  | 'goat'
+  | 'stall'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {
   pothole: buildPothole,
@@ -347,4 +371,5 @@ export const MODELS: Record<ModelKind, () => THREE.Object3D> = {
   barricade: buildBarricade,
   banner: () => buildBanner(CONFIG.ROAD_W),
   goat: buildGoat,
+  stall: buildStall,
 }

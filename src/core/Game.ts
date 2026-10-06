@@ -106,12 +106,17 @@ export class Game {
     this.obstacles = new Obstacles()
     this.pickups = new Pickups()
     this.track.setDecorator((t) => {
+      if (t.type === 'MARKET_ENTRY') {
+        this.obstacles.decorateMarket(t)
+        return
+      }
       if (!this.catching) this.obstacles.decorate(t) // keep the finale runway clear
       this.pickups.decorate(t)
     })
     this.track.setJunctionListener((committed) => {
       if (!this.catching) this.encounters.onJunction(committed)
     })
+    this.track.setMarketExitListener(() => this.onMarketExit())
     this.thief = new Thief(this.scene)
     this.player = new Player(
       this.scene,
@@ -290,7 +295,10 @@ export class Game {
         case 'policeAssist':
           this.startPoliceAssist(fx.seconds)
           break
-        // shortcut → Phase 5
+        case 'shortcut':
+          this.track.startShortcut(e.junction)
+          this.markJunction(e.junction, e.junction.correct ?? 'L') // guide into the market
+          break
         default:
           break
       }
@@ -305,6 +313,11 @@ export class Game {
     arrow.position.set(dir.x * (CONFIG.TILE_LEN / 2 + 5), 0, dir.z * (CONFIG.TILE_LEN / 2 + 5))
     arrow.rotateOnWorldAxis(UP_AXIS, Math.atan2(dir.x, dir.z))
     junction.group.add(arrow)
+  }
+
+  private onMarketExit(): void {
+    this.chase.add(CONFIG.CHASE_MARKET_EXIT)
+    this.hud.toast('Comot for market! Chase up! 🔥', 'info')
   }
 
   private startPoliceAssist(seconds: number): void {

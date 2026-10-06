@@ -38,6 +38,8 @@ export class Track {
   private readonly scene: THREE.Scene
   private decorator: ((info: TileInfo) => void) | null = null
   private junctionListener: ((committed: TileInfo[]) => void) | null = null
+  private marketExitListener: (() => void) | null = null
+  private marketRemaining = 0
 
   constructor(scene: THREE.Scene) {
     this.scene = scene
@@ -54,6 +56,11 @@ export class Track {
     this.junctionListener = fn
   }
 
+  /** Register a callback fired when a market shortcut section ends. */
+  setMarketExitListener(fn: () => void): void {
+    this.marketExitListener = fn
+  }
+
   reset(): void {
     for (const t of this.committed) {
       this.scene.remove(t.group)
@@ -66,6 +73,7 @@ export class Track {
     this.straightsSinceJunction = 0
     this.nextJunctionAt = 6
     this.straightOnly = false
+    this.marketRemaining = 0
 
     // First tile: a straight heading north from the origin cell.
     const first = this.makeTile('STRAIGHT', { gx: 0, gz: 0 }, DIR_N, DIR_N)
@@ -97,6 +105,13 @@ export class Track {
     for (const t of chosen) this.committed.push(t)
     this.disposeStubs(other)
 
+    // If this is Nero's market branch, continue laying market tiles beyond the
+    // already-themed stubs until the section reaches MARKET_LEN.
+    if (junction.shortcutBranch === side) {
+      this.marketRemaining = Math.max(0, CONFIG.MARKET_LEN - chosen.length)
+      if (this.marketRemaining === 0 && this.marketExitListener) this.marketExitListener()
+    }
+
     this.pending = null
     // The stubs we just committed count as straights toward the next junction.
     this.straightsSinceJunction = chosen.length
@@ -122,6 +137,35 @@ export class Track {
     this.nextJunctionAt = Number.POSITIVE_INFINITY
   }
 
+  /** Turn the correct branch of the (still pending) junction into a market
+   *  shortcut: re-theme its stub tiles and remember the branch so commit
+   *  continues the market section. Called by the shortcut encounter effect. */
+  startShortcut(junction: TileInfo): void {
+    if (!this.pending || this.pending.junction !== junction) return
+    const side = junction.correct ?? 'L'
+    junction.shortcutBranch = side
+    const stubs = side === 'L' ? this.pending.left : this.pending.right
+    for (const t of stubs) this.themeAsMarket(t)
+  }
+
+  /** Rebuild a tile as a market tile (dispose old road/decor/obstacles). */
+  private themeAsMarket(tile: TileInfo): void {
+    for (const c of [...tile.group.children]) {
+      tile.group.remove(c)
+      c.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (m.isMesh) m.geometry.dispose()
+      })
+    }
+    tile.obstacles = []
+    tile.pickups = []
+    tile.type = 'MARKET_ENTRY'
+    tile.market = true
+    const mesh = buildTileMesh('MARKET_ENTRY', tile.entryDir, [tile.exitDir])
+    for (const c of [...mesh.children]) tile.group.add(c)
+    if (this.decorator) this.decorator(tile)
+  }
+
   // --- generation ----------------------------------------------------------
 
   private ensureAhead(currentIndex: number): void {
@@ -134,6 +178,16 @@ export class Track {
     const after = this.committed[this.committed.length - 1]
     const entry = after.exitDir
     const cell = step(after.cell, entry)
+
+    // Market shortcut section: lay market tiles until the section is done.
+    if (this.marketRemaining > 0) {
+      const t = this.makeTile('MARKET_ENTRY', cell, entry, entry)
+      t.market = true
+      this.pushTile(t, after)
+      this.marketRemaining--
+      if (this.marketRemaining === 0 && this.marketExitListener) this.marketExitListener()
+      return
+    }
 
     // Finale runway: straights only, no turns or junctions.
     if (this.straightOnly) {
@@ -264,7 +318,7 @@ export class Track {
       obstacles: [],
       pickups: [],
     }
-    if (type === 'STRAIGHT' && this.decorator) this.decorator(info)
+    if ((type === 'STRAIGHT' || type === 'MARKET_ENTRY') && this.decorator) this.decorator(info)
     return info
   }
 

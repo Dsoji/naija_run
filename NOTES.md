@@ -46,6 +46,30 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - Full `src/` skeleton from spec §2 created as stubs, each noting the phase that
   implements it. `src/net/Leaderboard.ts` added for the leaderboard client.
 
+## Reference material
+
+- `calgod/flower-game` (Three.js runner) suggested as a reference. It's a
+  continuous left/right **dodge** runner — no lanes, no 90° turning, no
+  junctions — so its core doesn't map onto Naija Run's turning/junction model.
+  No LICENSE file, so treat as pattern reference only, not copy-paste. Ideas to
+  borrow in later phases: on-screen touch buttons (Phase 6 mobile), ACESFilmic
+  tone mapping + FogExp2 + shadow setup (Phase 2/6 visuals), procedural Web
+  Audio loop (Phase 6 audio). Skip its gyroscope tilt — poor fit for discrete
+  lanes/turns.
+
+## Phase 1 — Track & Turning (done)
+
+- Grid model: each tile = one square cell (side `TILE_LEN`). Player tracked as
+  distance-along-current-tile + lane, so turns are an exact pivot at the cell
+  centre. See `world/Tile.ts` (dir/grid math + builders), `world/Track.ts`
+  (generation, occupancy grid, junction branch stubs + commit, recycle),
+  `player/Player.ts` (motion, lanes, jump/slide, turn window + buffering + pivot,
+  missed-turn crash), `player/CameraRig.ts`, `core/{Clock,Input,Game}.ts`,
+  `ui/Screens.ts`.
+- Turn window = last `TURN_WINDOW_DIST` m before centre; early presses buffered
+  `TURN_BUFFER_MS`. Pivot happens at centre; missing a required turn crashes.
+- Auth is now non-blocking: the game boots even if Clerk fails to load (guest).
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

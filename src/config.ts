@@ -41,6 +41,22 @@ export const CONFIG = {
   CHASE_STUMBLE: -5,
   CHASE_MARKET_EXIT: 15,
 
+  // --- Player visuals & lane feel (Phase 1) --------------------------------
+  LANE_LERP: 0.12, // seconds-ish smoothing for lane changes
+  PLAYER_RADIUS: 0.45, // collider half-width (used from Phase 2)
+  PLAYER_HEIGHT: 1.2,
+
+  // --- Track visuals (Phase 1) ---------------------------------------------
+  ROAD_W: 7.8, // 3 lanes * LANE_W + margin
+  SIDEWALK_W: 1.4,
+  LANE_LINE_W: 0.12,
+
+  // --- Camera (Phase 1) -----------------------------------------------------
+  CAM_BACK: 7, // metres behind the player
+  CAM_HEIGHT: 4.2,
+  CAM_LOOK_AHEAD: 8, // metres ahead of the player the camera aims at
+  CAM_FOLLOW_LERP: 0.18, // position smoothing
+
   // --- Input ----------------------------------------------------------------
   SWIPE_MIN_PX: 30,
   SWIPE_MAX_MS: 300,

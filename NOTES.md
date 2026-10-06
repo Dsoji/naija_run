@@ -102,10 +102,18 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - 2.5 clues + toasts + side-swipe stumble ✓
 - Pothole = stumble (slow + ₦50), not crash, per owner request.
 
-### Deferred to Phase 3 (chase system)
-- Clue pickup should grant +CHASE_CLUE (8). Currently it only toasts.
-- Side-swipe stumble and pothole stumble should apply CHASE_STUMBLE (−5).
-- Chase bar currently shows CHASE_START only.
+### Phase 3 — Chase system — DONE
+- 3.1 ChaseMeter (start 10, +1/100m, decay 0.5/s after 20s unseen); clue +8,
+  stumble −5, correct turn +6 / wrong −8 all wired; HUD bar live.
+- 3.2 Thief car one junction ahead, visible ≥40, hint true ~70% / decoy <60.
+- 3.3 CAUGHT: chase 100 on a straight → Track.makeRunway clears ahead and goes
+  straight-only; thief parks in traffic CATCH_DISTANCE ahead; reaching it wins.
+
+### Balance caveat (tune in Phase 7)
+- Reaching chase 100 from Phase 3 alone is hard: before the thief is visible
+  (<40) junction turns are 50/50, averaging ~−1 net, and decay bites after 20s.
+  Encounters (Phase 4: revealTurn, clues, chase gains) are what make CAUGHT
+  realistically achievable. For now, correct turns + clues are the only climb.
 
 ## Open questions / TODO
 

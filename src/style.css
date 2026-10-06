@@ -226,6 +226,10 @@ a,
   color: #cbd5e1;
 }
 
+.screen-title--win {
+  color: #f5c400;
+}
+
 .screen-stat {
   margin: 0.2rem 0;
   font-size: 1.1rem;

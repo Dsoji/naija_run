@@ -57,6 +57,20 @@ export class Screens {
     )
   }
 
+  showCaught(stats: GameOverStats & { timeSec: number }, onRestart: () => void): void {
+    const mm = Math.floor(stats.timeSec / 60)
+    const ss = Math.round(stats.timeSec % 60)
+    this.render(
+      `
+      <h1 class="screen-title screen-title--win">You catch am!</h1>
+      <p class="screen-sub">You run down the thief. Lagos no easy.</p>
+      <p class="screen-stat">Distance: <b>${Math.round(stats.distance)}m</b> &nbsp;·&nbsp; Time: <b>${mm}:${String(ss).padStart(2, '0')}</b></p>
+      <p class="screen-stat">This run: <b>₦${stats.money.toLocaleString()}</b> &nbsp;·&nbsp; Total: <b>₦${stats.totalMoney.toLocaleString()}</b></p>
+      <button type="button" class="screen-btn" data-primary>Run Again</button>`,
+      onRestart,
+    )
+  }
+
   showGameOver(stats: GameOverStats, onRestart: () => void): void {
     this.render(
       `

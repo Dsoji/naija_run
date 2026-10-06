@@ -34,6 +34,7 @@ export class Track {
   private pending: { junction: TileInfo; left: TileInfo[]; right: TileInfo[] } | null = null
   private straightsSinceJunction = 0
   private nextJunctionAt = 6
+  private straightOnly = false
   private readonly scene: THREE.Scene
   private decorator: ((info: TileInfo) => void) | null = null
 
@@ -57,6 +58,7 @@ export class Track {
     this.pending = null
     this.straightsSinceJunction = 0
     this.nextJunctionAt = 6
+    this.straightOnly = false
 
     // First tile: a straight heading north from the origin cell.
     const first = this.makeTile('STRAIGHT', { gx: 0, gz: 0 }, DIR_N, DIR_N)
@@ -94,6 +96,25 @@ export class Track {
     this.nextJunctionAt = randInt(CONFIG.JUNCTION_EVERY_MIN, CONFIG.JUNCTION_EVERY_MAX)
   }
 
+  /** Clear everything ahead of `fromIndex` (which must be a STRAIGHT the player
+   *  is on) and switch to straight-only generation — a clean finale runway. */
+  makeRunway(fromIndex: number): void {
+    if (this.pending) {
+      this.disposeStubs([...this.pending.left, ...this.pending.right])
+      this.pending = null
+    }
+    for (let i = this.committed.length - 1; i > fromIndex; i--) {
+      const t = this.committed[i]
+      this.scene.remove(t.group)
+      disposeTile(t)
+      this.occupied.delete(cellKey(t.cell))
+    }
+    this.committed.length = fromIndex + 1
+    this.committed[fromIndex].next = undefined
+    this.straightOnly = true
+    this.nextJunctionAt = Number.POSITIVE_INFINITY
+  }
+
   // --- generation ----------------------------------------------------------
 
   private ensureAhead(currentIndex: number): void {
@@ -106,6 +127,12 @@ export class Track {
     const after = this.committed[this.committed.length - 1]
     const entry = after.exitDir
     const cell = step(after.cell, entry)
+
+    // Finale runway: straights only, no turns or junctions.
+    if (this.straightOnly) {
+      this.pushTile(this.makeTile('STRAIGHT', cell, entry, entry), after)
+      return
+    }
 
     // Time for a junction?
     if (this.straightsSinceJunction >= this.nextJunctionAt && this.tryJunction(after, cell, entry)) {

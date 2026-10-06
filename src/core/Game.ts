@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
+import { rightOf } from '../world/Tile'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -47,6 +48,9 @@ export class Game {
   private readonly pauseBtn: HTMLButtonElement
   private paused = false
   private money = 0
+  private catching = false
+  private catchAtDistance = 0
+  private runStartMs = 0
   private frames = 0
   private fpsAccum = 0
   private fps = 0
@@ -87,7 +91,7 @@ export class Game {
     this.obstacles = new Obstacles()
     this.pickups = new Pickups()
     this.track.setDecorator((t) => {
-      this.obstacles.decorate(t)
+      if (!this.catching) this.obstacles.decorate(t) // keep the finale runway clear
       this.pickups.decorate(t)
     })
     this.thief = new Thief(this.scene)
@@ -185,6 +189,9 @@ export class Game {
     this.paused = false
     this.pauseBtn.hidden = false
     this.money = 0
+    this.catching = false
+    this.catchAtDistance = 0
+    this.runStartMs = performance.now()
     this.hud.show()
     this.hud.setDistance(0)
     this.hud.setMoney(0)
@@ -208,6 +215,44 @@ export class Game {
       this.pauseBtn.hidden = false
       this.clock.resync() // avoid a dt spike after the pause
     }
+  }
+
+  /** Chase hit 100 — lay a clean straight runway and park the thief ahead. */
+  private tryStartCatch(): void {
+    const tile = this.track.committed[this.player.currentIndex]
+    if (!tile || tile.type !== 'STRAIGHT') return // wait until on a straight
+    if (this.player.distAlong < 2 || this.player.distAlong > CONFIG.TILE_LEN - 2) return
+
+    tile.obstacles.length = 0 // don't let a leftover obstacle spoil the finale
+    this.track.makeRunway(this.player.currentIndex)
+
+    const heading = this.player.heading
+    const right = rightOf(heading)
+    const lat = this.player.lateral
+    const pos = this.player.position.clone()
+    pos.x += -right.x * lat + heading.x * CONFIG.CATCH_DISTANCE // centre lane, ahead
+    pos.z += -right.z * lat + heading.z * CONFIG.CATCH_DISTANCE
+    pos.y = 0
+    this.thief.park(pos, heading)
+
+    this.catching = true
+    this.catchAtDistance = this.player.distance + CONFIG.CATCH_DISTANCE - CONFIG.CATCH_REACH
+    this.hud.toast('You see am! Traffic don hold am!', 'info')
+  }
+
+  private onCaught(): void {
+    this.state = 'CAUGHT'
+    this.paused = false
+    this.pauseBtn.hidden = true
+    const best = Math.max(this.hooks.readBest(), this.player.distance)
+    this.hooks.writeBest(best)
+    const totalMoney = this.hooks.readMoney() + this.money
+    this.hooks.writeMoney(totalMoney)
+    const timeSec = (performance.now() - this.runStartMs) / 1000
+    this.screens.showCaught(
+      { distance: this.player.distance, best, money: this.money, totalMoney, timeSec },
+      () => this.start(),
+    )
   }
 
   private onCrash(): void {
@@ -264,8 +309,16 @@ export class Game {
         this.player.currentIndex -= removed
         this.chase.update(sdt)
         this.chase.onDistance(this.player.distance)
-        const thiefSeen = this.thief.update(this.track, this.player, this.chase.value)
-        if (thiefSeen) this.chase.markSeen()
+        if (this.chase.isFull && !this.catching) this.tryStartCatch()
+
+        let thiefSeen: boolean
+        if (this.catching) {
+          thiefSeen = true
+          if (this.player.distance >= this.catchAtDistance) this.onCaught()
+        } else {
+          thiefSeen = this.thief.update(this.track, this.player, this.chase.value)
+        }
+        if (this.state === 'RUNNING' && thiefSeen) this.chase.markSeen()
         this.rig.update(this.player, dt)
         this.ground.position.set(this.player.position.x, -0.2, this.player.position.z)
         this.hud.setDistance(this.player.distance)

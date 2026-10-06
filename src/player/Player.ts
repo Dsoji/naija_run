@@ -94,7 +94,12 @@ export class Player {
     this.buffered = null
     this.jumpT = 0
     this.slideT = 0
+    this.runPhase = 0
     this.body.scale.set(1, 1, 1)
+    this.body.rotation.set(0, 0, 0)
+    this.legL.rotation.set(0, 0, 0)
+    this.legR.rotation.set(0, 0, 0)
+    this.group.rotation.set(0, 0, 0)
   }
 
   get position(): THREE.Vector3 {

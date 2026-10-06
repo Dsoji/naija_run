@@ -185,6 +185,23 @@ export function buildNote(value: number): THREE.Object3D {
   return g
 }
 
+// Clue: a glowing yellow folder icon (a body plane + a small tab). Flat 2D.
+const CLUE_MAT = new THREE.MeshStandardMaterial({
+  color: 0xf5c400,
+  emissive: 0xf5c400,
+  emissiveIntensity: 0.5,
+  roughness: 0.5,
+  side: THREE.DoubleSide,
+})
+export function buildClue(): THREE.Object3D {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.42), CLUE_MAT)
+  const tab = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.12), CLUE_MAT)
+  tab.position.set(-0.14, 0.26, 0.001)
+  g.add(body, tab)
+  return g
+}
+
 export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {

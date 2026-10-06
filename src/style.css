@@ -259,6 +259,49 @@ a,
   line-height: 1.7;
 }
 
+/* --- Toasts (top-centre, 1.5s) --------------------------------------------- */
+.hud-toasts {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+  width: max-content;
+  max-width: 90vw;
+}
+
+.hud-toast {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  animation: toastInOut 1.5s ease forwards;
+}
+
+.hud-toast--clue {
+  background: rgba(245, 196, 0, 0.9);
+  color: #141414;
+}
+
+.hud-toast--money {
+  background: rgba(63, 158, 107, 0.92);
+}
+
+@keyframes toastInOut {
+  0% { opacity: 0; transform: translateY(8px); }
+  12% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
 /* --- Pause button ---------------------------------------------------------- */
 .pause-btn {
   position: absolute;

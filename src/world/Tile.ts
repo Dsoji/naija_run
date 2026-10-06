@@ -51,6 +51,7 @@ export interface ObstacleBox {
   clearHeight: number // for JUMP: min airborne height that clears it
   onHit: 'crash' | 'stumble' // what happens if the player fails to clear it
   penalty: number // ₦ lost on a stumble
+  sideSwipe?: boolean // dodgeable solid: clipping it mid-lane-change is a stumble, not a crash
   hit?: boolean // set once a stumble has been consumed (so it fires only once)
   drift?: number // signed lateral speed (m/s) for moving obstacles (goat)
   alongVel?: number // signed along speed (m/s) for oncoming traffic (negative = toward player)
@@ -62,8 +63,10 @@ export interface ObstacleBox {
 export interface PickupItem {
   along: number
   lateral: number
-  value: number
+  value: number // ₦ (0 for a clue)
   phase: number // bob/rotate animation phase
+  clue?: boolean
+  text?: string // clue text
   collected?: boolean
   mesh: THREE.Object3D
 }

@@ -26,24 +26,25 @@ interface KindDef {
   clearHeight: number
   onHit: ObstacleBox['onHit']
   penalty: number
+  sideSwipe?: boolean // dodgeable solid: clipping it mid-change stumbles rather than crashes
 }
 
 // Per-lane obstacles (the player dodges sideways, and some can also be jumped).
 const PER_LANE: Record<string, KindDef> = {
   pothole: { model: 'pothole', action: 'JUMP', halfAlong: 0.9, halfLateral: 0.9, clearHeight: 0.4, onHit: 'stumble', penalty: CONFIG.POTHOLE_PENALTY },
-  danfo: { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0 },
-  keke: { model: 'keke', action: 'JUMP', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 1.0, onHit: 'crash', penalty: 0 },
-  barricade: { model: 'barricade', action: 'JUMP', halfAlong: 0.7, halfLateral: 1.1, clearHeight: 1.0, onHit: 'crash', penalty: 0 },
+  danfo: { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true },
+  keke: { model: 'keke', action: 'JUMP', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 1.0, onHit: 'crash', penalty: 0, sideSwipe: true },
+  barricade: { model: 'barricade', action: 'JUMP', halfAlong: 0.7, halfLateral: 1.1, clearHeight: 1.0, onHit: 'crash', penalty: 0, sideSwipe: true },
 }
 const PER_LANE_IDS = Object.keys(PER_LANE)
 
 const BANNER: KindDef = { model: 'banner', action: 'SLIDE', halfAlong: 0.3, halfLateral: CONFIG.ROAD_W / 2, clearHeight: 0, onHit: 'crash', penalty: 0 }
-const GOAT: KindDef = { model: 'goat', action: 'LANE', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 99, onHit: 'crash', penalty: 0 }
+const GOAT: KindDef = { model: 'goat', action: 'LANE', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true }
 
 // Oncoming traffic: a vehicle driving TOWARD the player in one lane — dodge it.
 const ONCOMING: KindDef[] = [
-  { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0 },
-  { model: 'keke', action: 'LANE', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 99, onHit: 'crash', penalty: 0 },
+  { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true },
+  { model: 'keke', action: 'LANE', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true },
 ]
 
 export type Collision = { kind: 'none' } | { kind: 'crash' } | { kind: 'stumble'; penalty: number }
@@ -126,6 +127,7 @@ export class Obstacles {
       clearHeight: kind.clearHeight,
       onHit: kind.onHit,
       penalty: kind.penalty,
+      sideSwipe: kind.sideSwipe,
       drift: opts?.drift,
       alongVel: opts?.alongVel,
       mesh: moving ? visual : undefined,
@@ -183,14 +185,33 @@ export class Obstacles {
         dAlong < ob.halfAlong + PLAYER_HALF_ALONG && dLat < ob.halfLateral + CONFIG.PLAYER_RADIUS
       if (!overlaps) continue
 
+      // Cleared by the correct action?
       if (ob.action === 'JUMP' && player.airborneY >= ob.clearHeight) continue
       if (ob.action === 'SLIDE' && player.isSliding) continue
 
-      if (ob.onHit === 'crash') return { kind: 'crash' }
-      if (!ob.hit) {
-        ob.hit = true
-        stumble = { kind: 'stumble', penalty: ob.penalty }
+      // A soft obstacle (pothole) always stumbles.
+      if (ob.onHit === 'stumble') {
+        if (!ob.hit) {
+          ob.hit = true
+          stumble = { kind: 'stumble', penalty: ob.penalty }
+        }
+        continue
       }
+
+      // Side-swipe: clipping a dodgeable solid while changing lanes (i.e. its
+      // lane isn't the one you're committing to) is a stumble, not a crash.
+      if (ob.sideSwipe) {
+        const obLane = Math.round(ob.lateral / CONFIG.LANE_W)
+        if (player.laneIndex !== obLane) {
+          if (!ob.hit) {
+            ob.hit = true
+            stumble = { kind: 'stumble', penalty: 0 }
+          }
+          continue
+        }
+      }
+
+      return { kind: 'crash' }
     }
     return stumble ?? { kind: 'none' }
   }

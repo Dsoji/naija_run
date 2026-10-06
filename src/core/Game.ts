@@ -224,11 +224,12 @@ export class Game {
             this.hud.setMoney(this.money)
           }
           if (this.state === 'RUNNING') {
-            const gained = this.pickups.collect(this.player, tile)
-            if (gained > 0) {
-              this.money += gained
+            const got = this.pickups.collect(this.player, tile)
+            if (got.money > 0) {
+              this.money += got.money
               this.hud.setMoney(this.money)
             }
+            for (const clue of got.clues) this.hud.toast(clue, 'clue')
           }
         }
       }

@@ -121,6 +121,10 @@ export class Player {
   get isSliding(): boolean {
     return this.state === 'SLIDE'
   }
+  /** The lane the player is committing to (target of the current lane change). */
+  get laneIndex(): number {
+    return this.lane
+  }
 
   /** Kill the player from an external cause (obstacle hit). */
   kill(): void {

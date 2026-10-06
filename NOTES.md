@@ -94,6 +94,19 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - 2.4 ₦ pickups (magnet, counter, HUD, persistence of total ₦).
 - 2.5 Clues + toasts + stumble on side-swipe.
 
+## Phase 2 status — DONE
+
+- 2.1 HUD + fog + ACESFilmic ✓ · 2.2 model registry + obstacles + AABB ✓
+- 2.3 full obstacle set + fair-spawn + density ramp ✓ (+ oncoming traffic)
+- 2.4 ₦ note pickups (magnet, counter, lifetime ₦ persistence) ✓
+- 2.5 clues + toasts + side-swipe stumble ✓
+- Pothole = stumble (slow + ₦50), not crash, per owner request.
+
+### Deferred to Phase 3 (chase system)
+- Clue pickup should grant +CHASE_CLUE (8). Currently it only toasts.
+- Side-swipe stumble and pothole stumble should apply CHASE_STUMBLE (−5).
+- Chase bar currently shows CHASE_START only.
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

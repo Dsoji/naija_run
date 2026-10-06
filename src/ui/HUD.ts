@@ -7,6 +7,7 @@ export class HUD {
   private readonly money: HTMLElement
   private readonly chaseFill: HTMLElement
   private readonly chaseWrap: HTMLElement
+  private readonly toasts: HTMLElement
 
   constructor(mount: HTMLElement) {
     this.dist = el('hud-dist', '0m')
@@ -21,7 +22,20 @@ export class HUD {
     label.textContent = 'CHASE'
     this.chaseWrap.append(this.chaseFill, label)
 
-    mount.append(this.dist, this.money, this.chaseWrap)
+    this.toasts = document.createElement('div')
+    this.toasts.className = 'hud-toasts'
+
+    mount.append(this.dist, this.money, this.chaseWrap, this.toasts)
+  }
+
+  /** Flash a transient top-centre message (spec §10): clues, "+₦500", etc. */
+  toast(text: string, kind: 'clue' | 'money' | 'info' = 'info'): void {
+    const t = document.createElement('div')
+    t.className = `hud-toast hud-toast--${kind}`
+    t.textContent = text
+    this.toasts.appendChild(t)
+    // Remove after the CSS animation (1.5 s) finishes.
+    window.setTimeout(() => t.remove(), 1500)
   }
 
   setDistance(m: number): void {

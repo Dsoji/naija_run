@@ -53,6 +53,8 @@ export interface ObstacleBox {
   penalty: number // ₦ lost on a stumble
   hit?: boolean // set once a stumble has been consumed (so it fires only once)
   drift?: number // signed lateral speed (m/s) for moving obstacles (goat)
+  alongVel?: number // signed along speed (m/s) for oncoming traffic (negative = toward player)
+  gone?: boolean // an oncoming vehicle that has passed the player (ignored by collision)
   mesh?: THREE.Object3D // visual, so a moving obstacle's position can be updated
 }
 

@@ -28,6 +28,7 @@ export const CONFIG = {
   DENSITY_MAX: 0.8,
   DENSITY_RAMP_DIST: 1500, // metres over which density climbs START → MAX
   GOAT_SPEED: 2.0, // m/s a goat drifts across lanes
+  ONCOMING_SPEED: 7, // m/s an oncoming vehicle closes toward the player
 
   // --- Encounters -----------------------------------------------------------
   ENCOUNTER_TIME: 3.5, // real-time seconds to choose before auto-ignore

@@ -40,6 +40,12 @@ const PER_LANE_IDS = Object.keys(PER_LANE)
 const BANNER: KindDef = { model: 'banner', action: 'SLIDE', halfAlong: 0.3, halfLateral: CONFIG.ROAD_W / 2, clearHeight: 0, onHit: 'crash', penalty: 0 }
 const GOAT: KindDef = { model: 'goat', action: 'LANE', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 99, onHit: 'crash', penalty: 0 }
 
+// Oncoming traffic: a vehicle driving TOWARD the player in one lane — dodge it.
+const ONCOMING: KindDef[] = [
+  { model: 'danfo', action: 'LANE', halfAlong: 1.9, halfLateral: 1.0, clearHeight: 99, onHit: 'crash', penalty: 0 },
+  { model: 'keke', action: 'LANE', halfAlong: 1.0, halfLateral: 0.9, clearHeight: 99, onHit: 'crash', penalty: 0 },
+]
+
 export type Collision = { kind: 'none' } | { kind: 'crash' } | { kind: 'stumble'; penalty: number }
 
 export class Obstacles {
@@ -70,13 +76,21 @@ export class Obstacles {
     const along = 6 + Math.random() * 6 // [6, 12] — clear of the ends/turns
     const roll = Math.random()
 
-    if (roll < 0.15) {
+    if (roll < 0.12) {
       // A goat drifting across lanes.
       const lane = LANES[Math.floor(Math.random() * 3)]
-      this.add(info, GOAT, along, lane, (Math.random() < 0.5 ? 1 : -1) * CONFIG.GOAT_SPEED)
-    } else if (roll < 0.35) {
+      this.add(info, GOAT, along, lane, { drift: (Math.random() < 0.5 ? 1 : -1) * CONFIG.GOAT_SPEED })
+    } else if (roll < 0.26) {
       // A full-width slide gate (banner), on its own.
       this.add(info, BANNER, along, 0)
+    } else if (roll < 0.4) {
+      // Oncoming vehicle: starts at the far end of the tile, closes on the player.
+      const lane = LANES[Math.floor(Math.random() * 3)]
+      const kind = ONCOMING[Math.floor(Math.random() * ONCOMING.length)]
+      this.add(info, kind, CONFIG.TILE_LEN - 2, lane, {
+        alongVel: -CONFIG.ONCOMING_SPEED,
+        faceReverse: true,
+      })
     } else {
       // A lane row of 1–2 per-lane obstacles (always ≥1 free lane).
       const p2 =
@@ -90,11 +104,19 @@ export class Obstacles {
     }
   }
 
-  private add(info: TileInfo, kind: KindDef, along: number, lane: number, drift?: number): void {
+  private add(
+    info: TileInfo,
+    kind: KindDef,
+    along: number,
+    lane: number,
+    opts?: { drift?: number; alongVel?: number; faceReverse?: boolean },
+  ): void {
     const lateral = lane * CONFIG.LANE_W
     const visual = MODELS[kind.model]()
     placeLocal(visual, info.entryDir, rightOf(info.entryDir), along, lateral)
+    if (opts?.faceReverse) visual.rotateOnWorldAxis(UP, Math.PI) // face the player
     info.group.add(visual)
+    const moving = opts?.drift !== undefined || opts?.alongVel !== undefined
     info.obstacles.push({
       along,
       lateral,
@@ -104,25 +126,41 @@ export class Obstacles {
       clearHeight: kind.clearHeight,
       onHit: kind.onHit,
       penalty: kind.penalty,
-      drift,
-      mesh: drift !== undefined ? visual : undefined,
+      drift: opts?.drift,
+      alongVel: opts?.alongVel,
+      mesh: moving ? visual : undefined,
     })
   }
 
-  /** Advance moving obstacles (goats bounce between the outer lanes). */
-  updateMoving(tiles: TileInfo[], dt: number): void {
-    for (const tile of tiles) {
+  /** Advance moving obstacles on the player's current and next tiles only, so
+   *  goats drift and oncoming traffic closes in just as the player arrives. */
+  updateMoving(tiles: TileInfo[], currentIndex: number, dt: number): void {
+    for (let i = currentIndex; i <= currentIndex + 1; i++) {
+      const tile = tiles[i]
+      if (!tile) continue
       for (const ob of tile.obstacles) {
-        if (ob.drift === undefined || !ob.mesh) continue
-        ob.lateral += ob.drift * dt
-        const limit = CONFIG.LANE_W
-        if (ob.lateral > limit) {
-          ob.lateral = limit
-          ob.drift = -Math.abs(ob.drift)
-        } else if (ob.lateral < -limit) {
-          ob.lateral = -limit
-          ob.drift = Math.abs(ob.drift)
+        if (!ob.mesh || ob.gone) continue
+
+        if (ob.drift !== undefined) {
+          ob.lateral += ob.drift * dt
+          const limit = CONFIG.LANE_W
+          if (ob.lateral > limit) {
+            ob.lateral = limit
+            ob.drift = -Math.abs(ob.drift)
+          } else if (ob.lateral < -limit) {
+            ob.lateral = -limit
+            ob.drift = Math.abs(ob.drift)
+          }
         }
+        if (ob.alongVel !== undefined) {
+          ob.along += ob.alongVel * dt
+          if (ob.along < -2) {
+            ob.gone = true
+            ob.mesh.visible = false
+            continue
+          }
+        }
+
         const r = rightOf(tile.entryDir)
         ob.mesh.position.set(
           tile.entryDir.x * (ob.along - HALF) + r.x * ob.lateral,
@@ -138,6 +176,7 @@ export class Obstacles {
   collide(player: Player, tile: TileInfo): Collision {
     let stumble: Collision | null = null
     for (const ob of tile.obstacles) {
+      if (ob.gone) continue
       const dAlong = Math.abs(player.distAlong - ob.along)
       const dLat = Math.abs(player.lateral - ob.lateral)
       const overlaps =

@@ -8,6 +8,7 @@ import { Input, type Action } from './Input'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
+import { ChaseMeter } from '../chase/ChaseMeter'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
@@ -32,6 +33,7 @@ export class Game {
   private readonly track: Track
   private readonly obstacles: Obstacles
   private readonly pickups: Pickups
+  private readonly chase = new ChaseMeter()
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -86,7 +88,13 @@ export class Game {
       this.obstacles.decorate(t)
       this.pickups.decorate(t)
     })
-    this.player = new Player(this.scene, this.track, this.clock, () => this.onCrash())
+    this.player = new Player(
+      this.scene,
+      this.track,
+      this.clock,
+      () => this.onCrash(),
+      (correct) => this.onJunctionTurn(correct),
+    )
     this.rig = new CameraRig(this.camera)
     this.screens = new Screens(hooks.mount)
     this.hud = new HUD(hooks.mount)
@@ -165,6 +173,7 @@ export class Game {
   private start(): void {
     this.screens.hide()
     this.obstacles.reset()
+    this.chase.reset()
     this.track.reset()
     this.player.reset()
     this.rig.snap(this.player)
@@ -175,8 +184,13 @@ export class Game {
     this.hud.show()
     this.hud.setDistance(0)
     this.hud.setMoney(0)
-    this.hud.setChase(CONFIG.CHASE_START)
+    this.hud.setChase(this.chase.value)
     this.state = 'RUNNING'
+  }
+
+  private onJunctionTurn(correct: boolean): void {
+    this.chase.add(correct ? CONFIG.CHASE_CORRECT_TURN : CONFIG.CHASE_WRONG_TURN)
+    if (!correct) this.hud.toast('Wrong turn!', 'info')
   }
 
   private togglePause(): void {
@@ -220,6 +234,7 @@ export class Game {
             this.player.kill()
           } else if (hit.kind === 'stumble') {
             this.player.stumble()
+            this.chase.add(CONFIG.CHASE_STUMBLE)
             this.money = Math.max(0, this.money - hit.penalty)
             this.hud.setMoney(this.money)
           }
@@ -229,7 +244,10 @@ export class Game {
               this.money += got.money
               this.hud.setMoney(this.money)
             }
-            for (const clue of got.clues) this.hud.toast(clue, 'clue')
+            for (const clue of got.clues) {
+              this.chase.add(CONFIG.CHASE_CLUE)
+              this.hud.toast(clue, 'clue')
+            }
           }
         }
       }
@@ -240,9 +258,12 @@ export class Game {
         this.pickups.update(this.track.committed, this.player.currentIndex, sdt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
+        this.chase.update(sdt)
+        this.chase.onDistance(this.player.distance)
         this.rig.update(this.player, dt)
         this.ground.position.set(this.player.position.x, -0.2, this.player.position.z)
         this.hud.setDistance(this.player.distance)
+        this.hud.setChase(this.chase.value)
       }
     }
 

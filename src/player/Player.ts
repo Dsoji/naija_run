@@ -56,11 +56,19 @@ export class Player {
   private readonly track: Track
   private readonly clock: Clock
   private readonly onCrash: () => void
+  private readonly onJunctionTurn: (correct: boolean) => void
 
-  constructor(scene: THREE.Scene, track: Track, clock: Clock, onCrash: () => void) {
+  constructor(
+    scene: THREE.Scene,
+    track: Track,
+    clock: Clock,
+    onCrash: () => void,
+    onJunctionTurn: (correct: boolean) => void = () => {},
+  ) {
     this.track = track
     this.clock = clock
     this.onCrash = onCrash
+    this.onJunctionTurn = onJunctionTurn
     // Placeholder runner: capsule body + sphere head + two box legs. Green shirt,
     // white trousers (a nod to the flag), per spec §4.
     this.body = new THREE.Group()
@@ -184,7 +192,10 @@ export class Player {
 
   private lockTurn(side: Side): void {
     const tile = this.currentTile
-    if (tile.type === 'T_JUNCTION') this.track.commit(side)
+    if (tile.type === 'T_JUNCTION') {
+      this.onJunctionTurn(side === tile.correct)
+      this.track.commit(side)
+    }
     this.turnLocked = true
     this.buffered = null
     if (this.state === 'RUN') this.state = 'TURNING' // don't clobber an in-air jump/slide

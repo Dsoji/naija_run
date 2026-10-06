@@ -24,8 +24,10 @@ export const CONFIG = {
   FORCED_TURN_CHANCE: 0.25,
 
   // --- Difficulty -----------------------------------------------------------
-  DENSITY_START: 0.35, // obstacle density per 10 m segment at the start
+  DENSITY_START: 0.35, // obstacle spawn chance per straight tile at the start
   DENSITY_MAX: 0.8,
+  DENSITY_RAMP_DIST: 1500, // metres over which density climbs START → MAX
+  GOAT_SPEED: 2.0, // m/s a goat drifts across lanes
 
   // --- Encounters -----------------------------------------------------------
   ENCOUNTER_TIME: 3.5, // real-time seconds to choose before auto-ignore

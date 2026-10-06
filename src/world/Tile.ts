@@ -52,6 +52,8 @@ export interface ObstacleBox {
   onHit: 'crash' | 'stumble' // what happens if the player fails to clear it
   penalty: number // ₦ lost on a stumble
   hit?: boolean // set once a stumble has been consumed (so it fires only once)
+  drift?: number // signed lateral speed (m/s) for moving obstacles (goat)
+  mesh?: THREE.Object3D // visual, so a moving obstacle's position can be updated
 }
 
 export interface Cell {

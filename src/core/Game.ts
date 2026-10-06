@@ -213,6 +213,8 @@ export class Game {
         }
       }
       if (this.state === 'RUNNING') {
+        this.obstacles.setDistance(this.player.distance)
+        this.obstacles.updateMoving(this.track.committed, dt * this.clock.scale)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
         this.rig.update(this.player, dt)

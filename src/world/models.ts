@@ -5,6 +5,7 @@
 // disposed). 2D pieces are flat, lit, fog-respecting planes (not raw Sprites).
 
 import * as THREE from 'three'
+import { CONFIG } from '../config'
 
 // --- shared materials -------------------------------------------------------
 const M = {
@@ -13,6 +14,13 @@ const M = {
   stripeBlack: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.3, metalness: 0.2 }),
   tyre: new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 1 }),
+  kekeGreen: new THREE.MeshStandardMaterial({ color: 0x2e9e4f, roughness: 0.7 }),
+  barricadeRed: new THREE.MeshStandardMaterial({ color: 0xd93025, roughness: 0.9 }),
+  barricadeWhite: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 }),
+  bannerCloth: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 1 }),
+  pole: new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.8 }),
+  goatHide: new THREE.MeshStandardMaterial({ color: 0xd9cfc1, roughness: 1 }),
+  goatDark: new THREE.MeshStandardMaterial({ color: 0x6b5d4f, roughness: 1 }),
 } as const
 
 /** Flat brown disc lying on the road — a pothole. 2D, faces up. */
@@ -61,9 +69,100 @@ export function buildDanfo(): THREE.Object3D {
   return g
 }
 
-export type ModelKind = 'pothole' | 'danfo'
+/** Keke napep: small green tricycle box with a yellow roof. */
+export function buildKeke(): THREE.Object3D {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 1.8), M.kekeGreen)
+  body.position.y = 0.75
+  g.add(body)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.25, 1.85), M.danfoYellow)
+  roof.position.y = 1.35
+  g.add(roof)
+  for (const sz of [-1, 1]) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.45, 0.05), M.glass)
+    win.position.set(0, 1.05, sz * 0.9)
+    g.add(win)
+  }
+  // Front single wheel + two rear wheels.
+  const front = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.25, 12), M.tyre)
+  front.rotation.z = Math.PI / 2
+  front.position.set(0, 0.28, 0.8)
+  g.add(front)
+  for (const sx of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.25, 12), M.tyre)
+    w.rotation.z = Math.PI / 2
+    w.position.set(sx * 0.55, 0.3, -0.7)
+    g.add(w)
+  }
+  return g
+}
+
+/** Police barricade: a low red/white striped box to jump. */
+export function buildBarricade(): THREE.Object3D {
+  const g = new THREE.Group()
+  const n = 5
+  const w = 2.2
+  for (let i = 0; i < n; i++) {
+    const seg = new THREE.Mesh(
+      new THREE.BoxGeometry(w / n, 0.7, 0.3),
+      i % 2 === 0 ? M.barricadeRed : M.barricadeWhite,
+    )
+    seg.position.set(-w / 2 + (i + 0.5) * (w / n), 0.55, 0)
+    g.add(seg)
+  }
+  for (const sx of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), M.pole)
+    leg.position.set(sx * (w / 2 - 0.1), 0.45, 0)
+    g.add(leg)
+  }
+  return g
+}
+
+/** Overhead banner spanning the road at ~1.3 m — slide under it. */
+export function buildBanner(roadWidth: number): THREE.Object3D {
+  const g = new THREE.Group()
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(roadWidth, 0.55, 0.12), M.bannerCloth)
+  bar.position.y = 1.55
+  g.add(bar)
+  for (const sx of [-1, 1]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.0, 8), M.pole)
+    pole.position.set((sx * roadWidth) / 2, 1.0, 0)
+    g.add(pole)
+  }
+  return g
+}
+
+/** Goat: small hide-coloured body, head and little horns, on four legs. */
+export function buildGoat(): THREE.Object3D {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.0), M.goatHide)
+  body.position.y = 0.6
+  g.add(body)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), M.goatHide)
+  head.position.set(0, 0.8, 0.6)
+  g.add(head)
+  for (const sx of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.25, 6), M.goatDark)
+    horn.position.set(sx * 0.1, 1.02, 0.6)
+    g.add(horn)
+  }
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), M.goatDark)
+      leg.position.set(sx * 0.18, 0.2, sz * 0.35)
+      g.add(leg)
+    }
+  }
+  return g
+}
+
+export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {
   pothole: buildPothole,
   danfo: buildDanfo,
+  keke: buildKeke,
+  barricade: buildBarricade,
+  banner: () => buildBanner(CONFIG.ROAD_W),
+  goat: buildGoat,
 }

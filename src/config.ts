@@ -87,6 +87,10 @@ export const CONFIG = {
   CAM_HEIGHT: 4.2,
   CAM_LOOK_AHEAD: 8, // metres ahead of the player the camera aims at
   CAM_FOLLOW_LERP: 0.18, // position smoothing
+  CAM_FOV: 70, // base field of view
+  CAM_FOV_KICK: 10, // extra FOV at top speed (sense of speed)
+  SHAKE_STUMBLE: 0.25, // camera shake magnitude on a stumble
+  SHAKE_CRASH: 0.7, // camera shake magnitude on a crash
 
   // --- Input ----------------------------------------------------------------
   SWIPE_MIN_PX: 30,

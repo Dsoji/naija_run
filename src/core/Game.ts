@@ -85,7 +85,7 @@ export class Game {
     this.scene.background = sky
     this.scene.fog = new THREE.Fog(sky.getHex(), 35, 135) // hides tile pop-in (spec §9)
 
-    this.camera = new THREE.PerspectiveCamera(70, w / h, 0.1, 400)
+    this.camera = new THREE.PerspectiveCamera(CONFIG.CAM_FOV, w / h, 0.1, 400)
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.setSize(w, h)
@@ -528,12 +528,15 @@ export class Game {
           if (hit.kind === 'crash') {
             if (this.player.consumeProtection()) {
               this.player.stumble()
+              this.rig.shake(CONFIG.SHAKE_STUMBLE)
               this.hud.toast('Shielded!', 'info')
             } else {
+              this.rig.shake(CONFIG.SHAKE_CRASH)
               this.player.kill()
             }
           } else if (hit.kind === 'stumble') {
             this.player.stumble()
+            this.rig.shake(CONFIG.SHAKE_STUMBLE)
             this.chase.add(CONFIG.CHASE_STUMBLE)
             this.money = Math.max(0, this.money - hit.penalty)
             this.hud.setMoney(this.money)
@@ -543,6 +546,7 @@ export class Game {
             if (got.money > 0) {
               this.money += got.money
               this.hud.setMoney(this.money)
+              this.hud.popMoney()
             }
             for (const clue of got.clues) {
               this.chase.add(CONFIG.CHASE_CLUE)
@@ -578,6 +582,7 @@ export class Game {
           thiefSeen = this.thief.update(this.track, this.player, this.chase.value)
         }
         if (this.state === 'RUNNING' && thiefSeen) this.chase.markSeen()
+        this.rig.setSpeed01(this.player.speed01)
         this.rig.update(this.player, dt)
         this.ground.position.set(this.player.position.x, -0.2, this.player.position.z)
         this.hud.setDistance(this.player.distance)

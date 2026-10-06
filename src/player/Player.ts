@@ -144,6 +144,10 @@ export class Player {
   get isSliding(): boolean {
     return this.state === 'SLIDE'
   }
+  /** Current speed as 0..1 between BASE and MAX (for the FOV kick). */
+  get speed01(): number {
+    return (this.speed - CONFIG.BASE_SPEED) / (CONFIG.MAX_SPEED - CONFIG.BASE_SPEED)
+  }
   /** The lane the player is committing to (target of the current lane change). */
   get laneIndex(): number {
     return this.lane

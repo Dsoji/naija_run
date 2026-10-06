@@ -48,6 +48,13 @@ export class HUD {
     this.money.textContent = `₦${n.toLocaleString()}`
   }
 
+  /** A quick scale pop on the ₦ counter when notes are collected. */
+  popMoney(): void {
+    this.money.classList.remove('is-pop')
+    void this.money.offsetWidth // restart the animation
+    this.money.classList.add('is-pop')
+  }
+
   /** chase is 0–100. `pulse` highlights the bar when the thief is visible. */
   setChase(pct: number, pulse = false): void {
     this.chaseFill.style.width = `${Math.max(0, Math.min(100, pct))}%`

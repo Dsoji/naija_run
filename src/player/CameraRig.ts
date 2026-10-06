@@ -9,9 +9,21 @@ import type { Player } from './Player'
 export class CameraRig {
   private readonly aim = new THREE.Vector3()
   private readonly camera: THREE.PerspectiveCamera
+  private shakeAmount = 0
+  private speed01 = 0
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera
+  }
+
+  /** Add a camera shake (magnitude), e.g. on a stumble or crash. */
+  shake(amount: number): void {
+    this.shakeAmount = Math.max(this.shakeAmount, amount)
+  }
+
+  /** 0..1 speed, used to kick the FOV for a sense of speed. */
+  setSpeed01(t: number): void {
+    this.speed01 = Math.max(0, Math.min(1, t))
   }
 
   snap(player: Player): void {
@@ -27,6 +39,21 @@ export class CameraRig {
     this.camera.position.lerp(pos, k)
     this.aim.lerp(look, k)
     this.camera.lookAt(this.aim)
+
+    // FOV kick with speed.
+    const targetFov = CONFIG.CAM_FOV + CONFIG.CAM_FOV_KICK * this.speed01
+    this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 4)
+    this.camera.updateProjectionMatrix()
+
+    // Decaying shake, applied as a small positional jitter.
+    if (this.shakeAmount > 0.001) {
+      this.camera.position.x += (Math.random() - 0.5) * this.shakeAmount
+      this.camera.position.y += (Math.random() - 0.5) * this.shakeAmount
+      this.camera.position.z += (Math.random() - 0.5) * this.shakeAmount
+      this.shakeAmount *= Math.max(0, 1 - dt * 6)
+    } else {
+      this.shakeAmount = 0
+    }
   }
 
   private targets(player: Player): { pos: THREE.Vector3; look: THREE.Vector3 } {

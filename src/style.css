@@ -139,6 +139,17 @@ a,
 .hud-money {
   right: 4.75rem; /* clear of the pause button */
   color: #f5c400; /* danfo yellow */
+  transform-origin: right center;
+}
+
+.hud-money.is-pop {
+  animation: moneyPop 0.28s ease;
+}
+
+@keyframes moneyPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); color: #fff; }
+  100% { transform: scale(1); }
 }
 
 .hud-chase {

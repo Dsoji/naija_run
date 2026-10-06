@@ -6,6 +6,7 @@ import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
 import { Track } from '../world/Track'
+import { Obstacles } from '../world/Obstacles'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
@@ -26,6 +27,7 @@ export class Game {
   private readonly renderer: THREE.WebGLRenderer
   private readonly clock = new Clock()
   private readonly track: Track
+  private readonly obstacles: Obstacles
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -73,6 +75,8 @@ export class Game {
     this.scene.add(this.ground)
 
     this.track = new Track(this.scene)
+    this.obstacles = new Obstacles()
+    this.track.setDecorator((t) => this.obstacles.decorate(t))
     this.player = new Player(this.scene, this.track, this.clock, () => this.onCrash())
     this.rig = new CameraRig(this.camera)
     this.screens = new Screens(hooks.mount)
@@ -151,6 +155,7 @@ export class Game {
 
   private start(): void {
     this.screens.hide()
+    this.obstacles.reset()
     this.track.reset()
     this.player.reset()
     this.rig.snap(this.player)
@@ -192,6 +197,10 @@ export class Game {
 
     if (this.state === 'RUNNING' && !this.paused) {
       this.player.update(dt)
+      if (this.state === 'RUNNING') {
+        const tile = this.track.committed[this.player.currentIndex]
+        if (tile && this.obstacles.collide(this.player, tile)) this.player.kill()
+      }
       if (this.state === 'RUNNING') {
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed

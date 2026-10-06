@@ -40,6 +40,17 @@ export function sameDir(a: Vec2, b: Vec2): boolean {
   return a.x === b.x && a.z === b.z
 }
 
+/** Collision box for an obstacle, expressed in the tile's local along/lateral
+ *  frame (metres). Decoupled from the visual (2D plane, 3D mesh or glb). */
+export interface ObstacleBox {
+  along: number // centre distance from the tile entry edge
+  lateral: number // centre offset to the right of travel
+  halfAlong: number
+  halfLateral: number
+  action: 'JUMP' | 'SLIDE' | 'LANE' // how the player clears it
+  clearHeight: number // for JUMP: min airborne height that clears it
+}
+
 export interface Cell {
   gx: number
   gz: number
@@ -68,6 +79,8 @@ export interface TileInfo {
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */
   next?: TileInfo
+  /** Obstacle colliders attached to this tile (visuals are children of group). */
+  obstacles: ObstacleBox[]
 }
 
 // --- Shared materials (constant count; never disposed) ----------------------

@@ -35,9 +35,15 @@ export class Track {
   private straightsSinceJunction = 0
   private nextJunctionAt = 6
   private readonly scene: THREE.Scene
+  private decorator: ((info: TileInfo) => void) | null = null
 
   constructor(scene: THREE.Scene) {
     this.scene = scene
+  }
+
+  /** Register a callback that populates each STRAIGHT tile with obstacles/pickups. */
+  setDecorator(fn: (info: TileInfo) => void): void {
+    this.decorator = fn
   }
 
   reset(): void {
@@ -213,14 +219,17 @@ export class Track {
     group.position.copy(cellCenter(cell))
     this.scene.add(group)
     this.occupied.add(cellKey(cell))
-    return {
+    const info: TileInfo = {
       type,
       cell,
       entryDir,
       exitDir,
       requiresTurn: type === 'TURN_L' || type === 'TURN_R' || type === 'T_JUNCTION',
       group,
+      obstacles: [],
     }
+    if (type === 'STRAIGHT' && this.decorator) this.decorator(info)
+    return info
   }
 
   private pushTile(info: TileInfo, after: TileInfo): void {

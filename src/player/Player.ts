@@ -108,6 +108,22 @@ export class Player {
   get heading(): Vec2 {
     return this.distAlong > HALF && this.pivoted ? this.currentTile.exitDir : this.dir
   }
+  /** Lateral offset (metres, right of travel) — for obstacle collision. */
+  get lateral(): number {
+    return this.laneOffset
+  }
+  /** Current height above the road — for clearing JUMP obstacles. */
+  get airborneY(): number {
+    return this.group.position.y
+  }
+  get isSliding(): boolean {
+    return this.state === 'SLIDE'
+  }
+
+  /** Kill the player from an external cause (obstacle hit). */
+  kill(): void {
+    if (this.state !== 'DEAD') this.crash()
+  }
   private get currentTile(): TileInfo {
     return this.track.committed[this.currentIndex]
   }

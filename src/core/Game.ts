@@ -242,7 +242,9 @@ export class Game {
   private openEncounter(e: EncounterInstance): void {
     this.inEncounter = true
     this.activeEncounter = e
-    this.clock.setTimeScale(CONFIG.SLOWMO_SCALE) // slow-mo, never a full pause
+    // Owner override of spec §7: fully pause the world while the choice timer
+    // (real-time, in DialogueUI) counts down, instead of slow-mo.
+    this.clock.setTimeScale(0, true)
     this.dialogue.open(
       e.def,
       (cost) => cost === undefined || this.money >= cost,

@@ -21,7 +21,10 @@ export class Clock {
     this.last = performance.now()
   }
 
-  setTimeScale(target: number): void {
+  /** Set the target time scale. `snap` applies it immediately (e.g. to pause
+   *  the world the instant an encounter opens) instead of easing toward it. */
+  setTimeScale(target: number, snap = false): void {
     this.targetScale = target
+    if (snap) this.scale = target
   }
 }

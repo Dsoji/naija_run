@@ -1,8 +1,9 @@
 // Encounter dialogue panel (spec §7, §10). Bottom-centre: speaker chip, 1–2
 // lines, 2–3 tap-friendly choice buttons (₦ cost shown, greyed when
 // unaffordable), and a countdown bar draining over ENCOUNTER_TIME real seconds.
-// If the timer expires, the LAST choice (ignore/refuse) auto-fires. Never fully
-// pauses the game — the world keeps moving in slow-mo behind it.
+// If the timer expires, the LAST choice (ignore/refuse) auto-fires. The world
+// is fully paused while this is open (owner override of spec §7); the countdown
+// runs on real time, independent of the game clock.
 
 import { CONFIG } from '../config'
 import type { EncounterDef } from '../encounters/types'

@@ -2,6 +2,8 @@
 // (top-centre) (spec §6, §10). HTML/CSS over the canvas — no canvas text. The
 // chase bar is drawn here; its value is driven by the chase system (Phase 3).
 
+import { CONFIG } from '../config'
+
 export class HUD {
   private readonly dist: HTMLElement
   private readonly money: HTMLElement
@@ -33,9 +35,9 @@ export class HUD {
     const t = document.createElement('div')
     t.className = `hud-toast hud-toast--${kind}`
     t.textContent = text
+    t.style.animationDuration = `${CONFIG.TOAST_TIME}s`
     this.toasts.appendChild(t)
-    // Remove after the CSS animation (1.5 s) finishes.
-    window.setTimeout(() => t.remove(), 1500)
+    window.setTimeout(() => t.remove(), CONFIG.TOAST_TIME * 1000)
   }
 
   setDistance(m: number): void {

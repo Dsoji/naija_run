@@ -48,6 +48,7 @@ export const CONFIG = {
   MAGNET: 0.8, // metres: notes within this planar distance are collected
   PICKUP_CHANCE: 0.5, // chance a straight tile carries a note line
   CLUE_CHANCE: 0.08, // chance a straight tile carries a clue instead (chase bonus: CHASE_CLUE, from Phase 3)
+  TOAST_TIME: 3.0, // seconds a HUD toast stays up
   NOTE_BASE_Y: 1.0, // float height of a note
   NOTES: [
     { value: 50, weight: 0.5 },

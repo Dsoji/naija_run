@@ -44,6 +44,17 @@ export const CONFIG = {
   CHASE_STUMBLE: -5,
   CHASE_MARKET_EXIT: 15,
 
+  // --- ₦ pickups ------------------------------------------------------------
+  MAGNET: 0.8, // metres: notes within this planar distance are collected
+  PICKUP_CHANCE: 0.5, // chance a straight tile carries a note line
+  NOTE_BASE_Y: 1.0, // float height of a note
+  NOTES: [
+    { value: 50, weight: 0.5 },
+    { value: 100, weight: 0.3 },
+    { value: 200, weight: 0.15 },
+    { value: 500, weight: 0.05 },
+  ],
+
   // --- Stumble (hitting a soft obstacle like a pothole) --------------------
   STUMBLE_TIME: 1.0, // seconds to recover full speed after a stumble
   STUMBLE_SPEED: 0.5, // speed multiplier at the moment of a stumble

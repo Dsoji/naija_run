@@ -4,6 +4,8 @@
 export interface GameOverStats {
   distance: number
   best: number
+  money: number // ₦ collected this run
+  totalMoney: number // lifetime ₦ banked
 }
 
 export class Screens {
@@ -59,8 +61,8 @@ export class Screens {
     this.render(
       `
       <h1 class="screen-title">You crash!</h1>
-      <p class="screen-stat">Distance: <b>${Math.round(stats.distance)}m</b></p>
-      <p class="screen-stat">Best: <b>${Math.round(stats.best)}m</b></p>
+      <p class="screen-stat">Distance: <b>${Math.round(stats.distance)}m</b> &nbsp;·&nbsp; Best: <b>${Math.round(stats.best)}m</b></p>
+      <p class="screen-stat">This run: <b>₦${stats.money.toLocaleString()}</b> &nbsp;·&nbsp; Total: <b>₦${stats.totalMoney.toLocaleString()}</b></p>
       <button type="button" class="screen-btn" data-primary>Run Again</button>`,
       onRestart,
     )

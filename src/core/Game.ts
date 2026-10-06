@@ -7,6 +7,7 @@ import { Clock } from './Clock'
 import { Input, type Action } from './Input'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
+import { Pickups } from '../world/Pickups'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
@@ -18,6 +19,8 @@ export interface GameHooks {
   mount: HTMLElement // canvas host (the game area)
   readBest: () => number
   writeBest: (v: number) => void
+  readMoney: () => number // lifetime ₦ banked across runs
+  writeMoney: (v: number) => void
 }
 
 export class Game {
@@ -28,6 +31,7 @@ export class Game {
   private readonly clock = new Clock()
   private readonly track: Track
   private readonly obstacles: Obstacles
+  private readonly pickups: Pickups
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -77,7 +81,11 @@ export class Game {
 
     this.track = new Track(this.scene)
     this.obstacles = new Obstacles()
-    this.track.setDecorator((t) => this.obstacles.decorate(t))
+    this.pickups = new Pickups()
+    this.track.setDecorator((t) => {
+      this.obstacles.decorate(t)
+      this.pickups.decorate(t)
+    })
     this.player = new Player(this.scene, this.track, this.clock, () => this.onCrash())
     this.rig = new CameraRig(this.camera)
     this.screens = new Screens(hooks.mount)
@@ -190,7 +198,12 @@ export class Game {
     this.pauseBtn.hidden = true
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
-    this.screens.showGameOver({ distance: this.player.distance, best }, () => this.start())
+    const totalMoney = this.hooks.readMoney() + this.money
+    this.hooks.writeMoney(totalMoney)
+    this.screens.showGameOver(
+      { distance: this.player.distance, best, money: this.money, totalMoney },
+      () => this.start(),
+    )
   }
 
   private loop(): void {
@@ -210,11 +223,20 @@ export class Game {
             this.money = Math.max(0, this.money - hit.penalty)
             this.hud.setMoney(this.money)
           }
+          if (this.state === 'RUNNING') {
+            const gained = this.pickups.collect(this.player, tile)
+            if (gained > 0) {
+              this.money += gained
+              this.hud.setMoney(this.money)
+            }
+          }
         }
       }
       if (this.state === 'RUNNING') {
+        const sdt = dt * this.clock.scale
         this.obstacles.setDistance(this.player.distance)
-        this.obstacles.updateMoving(this.track.committed, this.player.currentIndex, dt * this.clock.scale)
+        this.obstacles.updateMoving(this.track.committed, this.player.currentIndex, sdt)
+        this.pickups.update(this.track.committed, this.player.currentIndex, sdt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
         this.rig.update(this.player, dt)

@@ -58,6 +58,16 @@ export interface ObstacleBox {
   mesh?: THREE.Object3D // visual, so a moving obstacle's position can be updated
 }
 
+/** A collectible ₦ note attached to a tile (tile-local along/lateral frame). */
+export interface PickupItem {
+  along: number
+  lateral: number
+  value: number
+  phase: number // bob/rotate animation phase
+  collected?: boolean
+  mesh: THREE.Object3D
+}
+
 export interface Cell {
   gx: number
   gz: number
@@ -88,6 +98,8 @@ export interface TileInfo {
   next?: TileInfo
   /** Obstacle colliders attached to this tile (visuals are children of group). */
   obstacles: ObstacleBox[]
+  /** Collectible ₦ notes attached to this tile. */
+  pickups: PickupItem[]
 }
 
 // --- Shared materials (constant count; never disposed) ----------------------

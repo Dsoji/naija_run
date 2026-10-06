@@ -156,6 +156,35 @@ export function buildGoat(): THREE.Object3D {
   return g
 }
 
+// ₦ notes — flat banknote planes, colour-coded by denomination, double-sided
+// and slightly emissive so they pop as they rotate. Shared per-denomination.
+const NOTE_MAT: Record<number, THREE.MeshStandardMaterial> = {
+  50: noteMat(0x2e6fb0), // blue-ish
+  100: noteMat(0xb0434a), // red
+  200: noteMat(0xcf7a3a), // amber
+  500: noteMat(0x3f9e6b), // green
+}
+function noteMat(color: number): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.25,
+    roughness: 0.6,
+    side: THREE.DoubleSide,
+  })
+}
+
+export function buildNote(value: number): THREE.Object3D {
+  const mat = NOTE_MAT[value] ?? NOTE_MAT[50]
+  const note = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), mat)
+  // A thin bright rim so denominations read at a glance.
+  const rim = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.36), M.barricadeWhite)
+  rim.position.z = -0.001
+  const g = new THREE.Group()
+  g.add(rim, note)
+  return g
+}
+
 export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {

@@ -227,6 +227,7 @@ export class Track {
       requiresTurn: type === 'TURN_L' || type === 'TURN_R' || type === 'T_JUNCTION',
       group,
       obstacles: [],
+      pickups: [],
     }
     if (type === 'STRAIGHT' && this.decorator) this.decorator(info)
     return info

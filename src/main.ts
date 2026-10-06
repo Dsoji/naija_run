@@ -34,10 +34,26 @@ function writeBest(v: number): void {
     // Storage unavailable (private mode) — best is simply not persisted.
   }
 }
+function readMoney(): number {
+  try {
+    return Number(localStorage.getItem(userScopeKey('naijaRun.totalMoney')) ?? 0)
+  } catch {
+    return 0
+  }
+}
+function writeMoney(v: number): void {
+  try {
+    localStorage.setItem(userScopeKey('naijaRun.totalMoney'), String(Math.round(v)))
+  } catch {
+    // Storage unavailable — total ₦ is simply not persisted.
+  }
+}
 
 // --- Boot the game. ----------------------------------------------------------
 new Game({
   mount: document.getElementById('game')!,
   readBest,
   writeBest,
+  readMoney,
+  writeMoney,
 })

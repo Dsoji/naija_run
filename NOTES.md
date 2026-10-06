@@ -160,6 +160,18 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - 7.3 (pending owner): deploy backend (Render/Helicarrier) + prod Clerk keys +
   CORS + README; needs owner's hosting choice.
 
+## TODO — Naija visual pass (deferred, owner asked 2026-10-06, do "later")
+Goal: stronger Lagos/Nigeria vibe across assets, incl. the runner.
+- Runner: replace capsule+boxes with a human figure — Super Eagles green/white,
+  swinging arms (shoulder/hip pivot groups), sneakers, nicer head. Keep low-poly.
+- Roadside scenery (BIGGEST win — world is currently bare): build Scenery on
+  STRAIGHT tiles (children of tile group so they recycle): buildings in muted
+  pastels with bright shop-sign bands + window rows, electricity poles with
+  sagging wires, kiosks, generators, occasional billboard. Market already has
+  canopies/stalls.
+- Polish vehicles/NPCs (destination board on danfo, etc.) if time.
+- Keep perf: simple/merged geometry, dispose with tile.
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

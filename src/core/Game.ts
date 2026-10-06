@@ -5,16 +5,19 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
-import { rightOf } from '../world/Tile'
+import { rightOf, type EncounterInstance } from '../world/Tile'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
 import { ChaseMeter } from '../chase/ChaseMeter'
 import { Thief } from '../chase/Thief'
+import { EncounterSystem } from '../encounters/EncounterSystem'
+import type { Effect } from '../encounters/types'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
 import { HUD } from '../ui/HUD'
+import { DialogueUI } from '../ui/DialogueUI'
 
 export type GameState = 'INTRO' | 'RUNNING' | 'ENCOUNTER' | 'CAUGHT' | 'GAMEOVER'
 
@@ -37,6 +40,10 @@ export class Game {
   private readonly pickups: Pickups
   private readonly chase = new ChaseMeter()
   private readonly thief: Thief
+  private readonly encounters = new EncounterSystem()
+  private readonly dialogue: DialogueUI
+  private inEncounter = false
+  private activeEncounter: EncounterInstance | null = null
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -94,6 +101,9 @@ export class Game {
       if (!this.catching) this.obstacles.decorate(t) // keep the finale runway clear
       this.pickups.decorate(t)
     })
+    this.track.setJunctionListener((committed) => {
+      if (!this.catching) this.encounters.onJunction(committed)
+    })
     this.thief = new Thief(this.scene)
     this.player = new Player(
       this.scene,
@@ -106,6 +116,7 @@ export class Game {
     this.screens = new Screens(hooks.mount)
     this.hud = new HUD(hooks.mount)
     this.hud.hide()
+    this.dialogue = new DialogueUI(hooks.mount)
 
     // Debug overlay element (hidden unless toggled).
     this.debugEl = document.createElement('div')
@@ -129,7 +140,7 @@ export class Game {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.clock.resync()
-        if (this.state === 'RUNNING' && !this.paused) this.togglePause() // auto-pause
+        if (this.state === 'RUNNING' && !this.paused && !this.inEncounter) this.togglePause()
       }
     })
 
@@ -149,6 +160,13 @@ export class Game {
     if (this.paused) {
       if (a === 'pause' || a === 'confirm' || a === 'up') this.togglePause()
       return
+    }
+    // During an encounter: number keys pick, pause is suppressed.
+    if (this.inEncounter) {
+      if (a === 'choose1') this.dialogue.chooseByKey(1)
+      else if (a === 'choose2') this.dialogue.chooseByKey(2)
+      else if (a === 'choose3') this.dialogue.chooseByKey(3)
+      if (a === 'pause') return
     }
     if (a === 'pause') {
       this.togglePause()
@@ -182,6 +200,11 @@ export class Game {
     this.obstacles.reset()
     this.chase.reset()
     this.thief.reset()
+    this.encounters.reset()
+    this.dialogue.close()
+    this.inEncounter = false
+    this.activeEncounter = null
+    this.clock.setTimeScale(1)
     this.track.reset()
     this.player.reset()
     this.rig.snap(this.player)
@@ -202,6 +225,50 @@ export class Game {
   private onJunctionTurn(correct: boolean): void {
     this.chase.add(correct ? CONFIG.CHASE_CORRECT_TURN : CONFIG.CHASE_WRONG_TURN)
     if (!correct) this.hud.toast('Wrong turn!', 'info')
+  }
+
+  // --- encounters ------------------------------------------------------------
+
+  private openEncounter(e: EncounterInstance): void {
+    this.inEncounter = true
+    this.activeEncounter = e
+    this.clock.setTimeScale(CONFIG.SLOWMO_SCALE) // slow-mo, never a full pause
+    this.dialogue.open(
+      e.def,
+      (cost) => cost === undefined || this.money >= cost,
+      (index) => this.onEncounterChoice(index),
+    )
+  }
+
+  private onEncounterChoice(index: number): void {
+    const e = this.activeEncounter
+    this.inEncounter = false
+    this.activeEncounter = null
+    this.clock.setTimeScale(1) // eases back over ~0.3s via the Clock
+    if (!e) return
+    const choice = e.def.choices[index]
+    if (choice) this.applyEffects(this.encounters.resolve(choice), e)
+  }
+
+  private applyEffects(effects: Effect[], _e: EncounterInstance): void {
+    for (const fx of effects) {
+      switch (fx.kind) {
+        case 'chase':
+          this.chase.add(fx.amount)
+          break
+        case 'money':
+          this.money = Math.max(0, this.money + fx.amount)
+          this.hud.setMoney(this.money)
+          break
+        case 'bark':
+          this.hud.toast(`${fx.speaker}: ${fx.line}`, 'info')
+          break
+        // revealTurn / fakeTurn / policeAssist / protection → Phase 4.2
+        // shortcut → Phase 5
+        default:
+          break
+      }
+    }
   }
 
   private togglePause(): void {
@@ -240,10 +307,18 @@ export class Game {
     this.hud.toast('You see am! Traffic don hold am!', 'info')
   }
 
+  private endRunCleanup(): void {
+    this.dialogue.close()
+    this.inEncounter = false
+    this.activeEncounter = null
+    this.clock.setTimeScale(1)
+  }
+
   private onCaught(): void {
     this.state = 'CAUGHT'
     this.paused = false
     this.pauseBtn.hidden = true
+    this.endRunCleanup()
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
     const totalMoney = this.hooks.readMoney() + this.money
@@ -259,6 +334,7 @@ export class Game {
     this.state = 'GAMEOVER'
     this.paused = false
     this.pauseBtn.hidden = true
+    this.endRunCleanup()
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
     const totalMoney = this.hooks.readMoney() + this.money
@@ -298,6 +374,10 @@ export class Game {
               this.hud.toast(clue, 'clue')
             }
           }
+          if (this.state === 'RUNNING' && !this.inEncounter) {
+            const e = this.encounters.triggerAt(this.player, tile)
+            if (e) this.openEncounter(e)
+          }
         }
       }
       if (this.state === 'RUNNING') {
@@ -305,6 +385,8 @@ export class Game {
         this.obstacles.setDistance(this.player.distance)
         this.obstacles.updateMoving(this.track.committed, this.player.currentIndex, sdt)
         this.pickups.update(this.track.committed, this.player.currentIndex, sdt)
+        this.encounters.setDistance(this.player.distance)
+        this.encounters.update(this.track.committed, this.player.currentIndex, dt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
         this.chase.update(sdt)

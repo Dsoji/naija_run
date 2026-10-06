@@ -6,6 +6,7 @@
 
 import * as THREE from 'three'
 import { CONFIG } from '../config'
+import type { EncounterDef } from '../encounters/types'
 
 export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY'
 export type Side = 'L' | 'R'
@@ -71,6 +72,16 @@ export interface PickupItem {
   mesh: THREE.Object3D
 }
 
+/** A roadside NPC encounter attached to a straight ~2 tiles before a junction. */
+export interface EncounterInstance {
+  def: EncounterDef
+  junction: TileInfo // the junction this encounter can influence
+  along: number // NPC position along the tile
+  bobPhase: number
+  triggered?: boolean
+  mesh: THREE.Object3D
+}
+
 export interface Cell {
   gx: number
   gz: number
@@ -104,6 +115,8 @@ export interface TileInfo {
   obstacles: ObstacleBox[]
   /** Collectible ₦ notes attached to this tile. */
   pickups: PickupItem[]
+  /** A roadside encounter NPC, if one spawned on this tile. */
+  encounter?: EncounterInstance
 }
 
 // --- Shared materials (constant count; never disposed) ----------------------

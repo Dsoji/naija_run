@@ -33,6 +33,9 @@ export const CONFIG = {
   // --- Encounters -----------------------------------------------------------
   ENCOUNTER_TIME: 3.5, // real-time seconds to choose before auto-ignore
   SLOWMO_SCALE: 0.25,
+  ENCOUNTER_TRIGGER_DIST: 15, // metres before the NPC that opens the dialogue
+  ENCOUNTER_CHANCE: 0.7, // chance a junction gets an encounter (subject to cooldown)
+  ENCOUNTER_COOLDOWN: 2, // junctions to wait between encounters
 
   // --- Chase ----------------------------------------------------------------
   CHASE_START: 10,

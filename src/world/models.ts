@@ -236,6 +236,58 @@ export function buildThief(): THREE.Object3D {
   return g
 }
 
+// --- Encounter NPCs (spec §7): distinct silhouettes from primitives. --------
+const NPC_MAT = {
+  police: new THREE.MeshStandardMaterial({ color: 0x1b2a4a, roughness: 0.8 }), // navy
+  singlet: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 }),
+  casual: new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.9 }),
+  skin: new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
+  red: new THREE.MeshStandardMaterial({ color: 0xc0271d, roughness: 0.8 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xf5c400, metalness: 0.6, roughness: 0.4 }),
+  towel: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 1 }),
+} as const
+
+export type NpcKind = 'police' | 'nero' | 'agbero'
+
+export function buildNPC(kind: NpcKind): THREE.Object3D {
+  const g = new THREE.Group()
+  const torsoMat = kind === 'police' ? NPC_MAT.police : kind === 'agbero' ? NPC_MAT.singlet : NPC_MAT.casual
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.32), torsoMat)
+  torso.position.y = 1.05
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), NPC_MAT.skin)
+  head.position.y = 1.62
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.24), NPC_MAT.black)
+  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.24), NPC_MAT.black)
+  legL.position.set(-0.15, 0.35, 0)
+  legR.position.set(0.15, 0.35, 0)
+  g.add(torso, head, legL, legR)
+
+  if (kind === 'police') {
+    const beret = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 12), NPC_MAT.black)
+    beret.position.y = 1.82
+    beret.rotation.z = 0.12
+    g.add(beret)
+  } else if (kind === 'nero') {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), NPC_MAT.red)
+    cap.position.y = 1.78
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.22), NPC_MAT.red)
+    brim.position.set(0, 1.74, 0.22)
+    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 16), NPC_MAT.gold)
+    chain.position.y = 1.18
+    chain.rotation.x = Math.PI / 2
+    g.add(cap, brim, chain)
+  } else {
+    // agbero: towel draped over one shoulder, bare arms (singlet).
+    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.6, 0.12), NPC_MAT.towel)
+    towel.position.set(0.3, 1.1, 0)
+    towel.rotation.z = 0.2
+    g.add(towel)
+  }
+  return g
+}
+
 export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {

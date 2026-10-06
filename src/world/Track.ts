@@ -37,6 +37,7 @@ export class Track {
   private straightOnly = false
   private readonly scene: THREE.Scene
   private decorator: ((info: TileInfo) => void) | null = null
+  private junctionListener: ((committed: TileInfo[]) => void) | null = null
 
   constructor(scene: THREE.Scene) {
     this.scene = scene
@@ -45,6 +46,12 @@ export class Track {
   /** Register a callback that populates each STRAIGHT tile with obstacles/pickups. */
   setDecorator(fn: (info: TileInfo) => void): void {
     this.decorator = fn
+  }
+
+  /** Register a callback fired when a T-junction is created (it is the last
+   *  committed tile at call time) — used to attach encounters ahead of it. */
+  setJunctionListener(fn: (committed: TileInfo[]) => void): void {
+    this.junctionListener = fn
   }
 
   reset(): void {
@@ -190,6 +197,7 @@ export class Track {
     const right = this.growStub(junction, rightDir, rightCells)
     this.pending = { junction, left, right }
     this.straightsSinceJunction = 0
+    if (this.junctionListener) this.junctionListener(this.committed)
     return true
   }
 

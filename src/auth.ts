@@ -28,6 +28,19 @@ export function userScopeKey(base: string): string {
   return `${base}:${id}`
 }
 
+export function isSignedIn(): boolean {
+  return !!clerk.user
+}
+
+/** A short session JWT for authenticating API calls, or null if signed out. */
+export async function getToken(): Promise<string | null> {
+  try {
+    return (await clerk.session?.getToken()) ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Best-effort, human-readable error message from a Clerk/unknown error. */
 export function clerkErrorMessage(err: unknown): string {
   const anyErr = err as { errors?: Array<{ longMessage?: string; message?: string }>; message?: string }

@@ -143,6 +143,23 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - 6.4 on-screen jump/slide buttons for touch (pointer:coarse only); swipes still
   primary. Pause + visibility auto-pause already done in earlier phases.
 
+## Phase 7 — in progress
+- 7.1 tuning: turn window 7m / buffer 180ms, chase decay 0.4. Speed left default.
+- 7.2 leaderboard:
+  - Frontend: net/Leaderboard.ts (top/submit), ui/LeaderboardUI.ts, end-screen
+    panel with submit (signed in) / sign-in (signed out); hidden when API_BASE
+    empty so the game is unaffected until configured. auth.getToken/isSignedIn.
+  - Backend: server/ (Express + pg + @clerk/backend). GET /scores/top (public),
+    POST /scores (Clerk JWT verified; user id from token; score recomputed in
+    server/src/score.ts — MIRROR of config computeScore). docker-compose for PG.
+  - To enable locally: docker compose up -d; cd server && cp .env.example .env
+    (set CLERK_SECRET_KEY) && npm i && npm run dev; add VITE_API_BASE to
+    .env.local; restart the game.
+  - NOT type-checked in this env (server deps not installed); written by
+    inspection. `cd server && npm i && npm run typecheck` to verify.
+- 7.3 (pending owner): deploy backend (Render/Helicarrier) + prod Clerk keys +
+  CORS + README; needs owner's hosting choice.
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

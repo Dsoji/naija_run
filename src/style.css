@@ -514,6 +514,71 @@ a,
   background: rgba(22, 163, 74, 0.55);
 }
 
+/* --- Leaderboard panel (end screens) --------------------------------------- */
+.lb {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.lb-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.lb-action {
+  margin-bottom: 0.6rem;
+}
+
+.lb-btn {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.lb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 34vh;
+  overflow-y: auto;
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.lb-rank {
+  width: 1.5rem;
+  color: #94a3b8;
+  font-weight: 800;
+  text-align: right;
+}
+
+.lb-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-score {
+  font-weight: 800;
+  color: #f5c400;
+}
+
+.lb-note {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+}
+
 /* --- Debug overlay (backtick key) ------------------------------------------ */
 .debug-overlay {
   position: absolute;

@@ -20,6 +20,10 @@ import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
 import { HUD } from '../ui/HUD'
 import { DialogueUI } from '../ui/DialogueUI'
+import { Leaderboard, type ScoreStats } from '../net/Leaderboard'
+import { renderLeaderboard } from '../ui/LeaderboardUI'
+import { isSignedIn, getToken } from '../auth'
+import { openAuthModal } from '../authUI'
 
 export type GameState = 'INTRO' | 'RUNNING' | 'ENCOUNTER' | 'CAUGHT' | 'GAMEOVER'
 
@@ -72,6 +76,9 @@ export class Game {
   private neroPhase = 0
   private calloutCooldown = 0
   private tutorialActive = false
+  private readonly leaderboard = new Leaderboard()
+  private submittedThisRun = false
+  private lastStats: ScoreStats | null = null
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -285,6 +292,8 @@ export class Game {
     this.catching = false
     this.catchAtDistance = 0
     this.runStartMs = performance.now()
+    this.submittedThisRun = false
+    this.lastStats = null
     this.hud.show()
     this.hud.setDistance(0)
     this.hud.setMoney(0)
@@ -522,6 +531,21 @@ export class Game {
     this.hud.toast('You see am! Traffic don hold am!', 'info')
   }
 
+  private mountLeaderboard(card: HTMLElement): void {
+    renderLeaderboard(card, {
+      lb: this.leaderboard,
+      signedIn: isSignedIn(),
+      canSubmit: isSignedIn() && !this.submittedThisRun,
+      onSubmit: async () => {
+        const token = await getToken()
+        if (!token || !this.lastStats) throw new Error('not signed in')
+        await this.leaderboard.submit(this.lastStats, token)
+        this.submittedThisRun = true
+      },
+      onSignIn: () => openAuthModal('sign-in'),
+    })
+  }
+
   private endRunCleanup(): void {
     this.sfx.stopMusic()
     this.dialogue.close()
@@ -545,9 +569,11 @@ export class Game {
     const totalMoney = this.hooks.readMoney() + this.money
     this.hooks.writeMoney(totalMoney)
     const timeSec = (performance.now() - this.runStartMs) / 1000
+    this.lastStats = { distanceMeters: this.player.distance, money: this.money, timeSeconds: timeSec, caught: true }
     this.screens.showCaught(
       { distance: this.player.distance, best, money: this.money, totalMoney, timeSec },
       () => this.start(),
+      (card) => this.mountLeaderboard(card),
     )
   }
 
@@ -562,9 +588,12 @@ export class Game {
     this.hooks.writeBest(best)
     const totalMoney = this.hooks.readMoney() + this.money
     this.hooks.writeMoney(totalMoney)
+    const timeSec = (performance.now() - this.runStartMs) / 1000
+    this.lastStats = { distanceMeters: this.player.distance, money: this.money, timeSeconds: timeSec, caught: false }
     this.screens.showGameOver(
       { distance: this.player.distance, best, money: this.money, totalMoney },
       () => this.start(),
+      (card) => this.mountLeaderboard(card),
     )
   }
 

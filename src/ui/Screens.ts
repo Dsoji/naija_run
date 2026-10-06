@@ -59,7 +59,11 @@ export class Screens {
     )
   }
 
-  showCaught(stats: GameOverStats & { timeSec: number }, onRestart: () => void): void {
+  showCaught(
+    stats: GameOverStats & { timeSec: number },
+    onRestart: () => void,
+    onReady?: (card: HTMLElement) => void,
+  ): void {
     const mm = Math.floor(stats.timeSec / 60)
     const ss = Math.round(stats.timeSec % 60)
     this.render(
@@ -70,10 +74,11 @@ export class Screens {
       <p class="screen-stat">This run: <b>₦${stats.money.toLocaleString()}</b> &nbsp;·&nbsp; Total: <b>₦${stats.totalMoney.toLocaleString()}</b></p>
       <button type="button" class="screen-btn" data-primary>Run Again</button>`,
       onRestart,
+      onReady,
     )
   }
 
-  showGameOver(stats: GameOverStats, onRestart: () => void): void {
+  showGameOver(stats: GameOverStats, onRestart: () => void, onReady?: (card: HTMLElement) => void): void {
     this.render(
       `
       <h1 class="screen-title">You crash!</h1>
@@ -81,6 +86,7 @@ export class Screens {
       <p class="screen-stat">This run: <b>₦${stats.money.toLocaleString()}</b> &nbsp;·&nbsp; Total: <b>₦${stats.totalMoney.toLocaleString()}</b></p>
       <button type="button" class="screen-btn" data-primary>Run Again</button>`,
       onRestart,
+      onReady,
     )
   }
 
@@ -90,7 +96,7 @@ export class Screens {
     this.primary = null
   }
 
-  private render(html: string, primary: () => void): void {
+  private render(html: string, primary: () => void, onReady?: (card: HTMLElement) => void): void {
     this.hide()
     const overlay = document.createElement('div')
     overlay.className = 'screen-overlay'
@@ -99,5 +105,7 @@ export class Screens {
     this.el = overlay
     this.primary = primary
     overlay.querySelector('[data-primary]')?.addEventListener('click', () => primary())
+    const card = overlay.querySelector<HTMLElement>('.screen-card')
+    if (card && onReady) onReady(card)
   }
 }

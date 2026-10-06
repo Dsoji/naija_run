@@ -83,13 +83,17 @@ export class Obstacles {
   }
 }
 
+const UP = new THREE.Vector3(0, 1, 0)
+
 /** Position a visual at (along, lateral) inside a non-rotated tile group, and
- *  face it down the lane (−Z model forward → travel direction). */
+ *  face it down the lane. The yaw is applied about the WORLD vertical axis so it
+ *  composes correctly on top of any built-in tilt (e.g. a pothole lying flat) —
+ *  setting rotation.y directly would tip a tilted mesh upright after a turn. */
 function placeLocal(obj: THREE.Object3D, dir: Vec2, right: Vec2, along: number, lateral: number): void {
   obj.position.set(
     dir.x * (along - HALF) + right.x * lateral,
     0,
     dir.z * (along - HALF) + right.z * lateral,
   )
-  obj.rotation.y = Math.atan2(-dir.x, -dir.z)
+  obj.rotateOnWorldAxis(UP, Math.atan2(-dir.x, -dir.z))
 }

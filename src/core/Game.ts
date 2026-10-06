@@ -56,6 +56,7 @@ export class Game {
   private neroShown = false
   private neroPhase = 0
   private calloutCooldown = 0
+  private tutorialActive = false
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -217,6 +218,8 @@ export class Game {
     this.obstacles.reset()
     this.chase.reset()
     this.thief.reset()
+    this.thief.setTutorial(true) // show the thief + truthful hint at the first junction
+    this.tutorialActive = true
     this.encounters.reset()
     this.dialogue.close()
     this.inEncounter = false
@@ -247,6 +250,10 @@ export class Game {
   private onJunctionTurn(correct: boolean): void {
     this.chase.add(correct ? CONFIG.CHASE_CORRECT_TURN : CONFIG.CHASE_WRONG_TURN)
     if (!correct) this.hud.toast('Wrong turn!', 'info')
+    if (this.tutorialActive) {
+      this.tutorialActive = false
+      this.thief.setTutorial(false) // tutorial ends after the first junction
+    }
   }
 
   // --- encounters ------------------------------------------------------------

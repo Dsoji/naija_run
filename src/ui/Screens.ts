@@ -35,12 +35,14 @@ export class Screens {
     this.render(
       `
       <h1 class="screen-title">NAIJA&nbsp;RUN</h1>
-      <p class="screen-sub">Chase the thief. Turn at the junctions. No dulling.</p>
-      <button type="button" class="screen-btn" data-primary>Tap / Space to start</button>
-      <ul class="screen-hints">
+      <p class="intro-line" style="animation-delay:0.2s">You park your motor. You comot for five minutes.</p>
+      <p class="intro-line" style="animation-delay:1.3s">Omo! Your motor just pass there!</p>
+      <p class="intro-line intro-run" style="animation-delay:2.4s">RUN.</p>
+      <button type="button" class="screen-btn intro-cta" style="animation-delay:3.2s" data-primary>Tap / Space to start</button>
+      <ul class="screen-hints intro-cta" style="animation-delay:3.2s">
         <li>Swipe or ←/→ to switch lane &amp; turn</li>
         <li>Swipe up / ↑ to jump &nbsp;·&nbsp; swipe down / ↓ to slide</li>
-        <li>Turn at corners &amp; junctions — miss one and you crash</li>
+        <li>Follow the thief at junctions — miss a turn and you crash</li>
       </ul>`,
       onStart,
     )

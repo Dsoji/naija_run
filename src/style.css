@@ -230,6 +230,31 @@ a,
   color: #f5c400;
 }
 
+/* Intro sequence: lines fade up one by one, then the CTA appears. */
+.intro-line,
+.intro-cta {
+  opacity: 0;
+  animation: introFade 0.6s ease forwards;
+}
+
+.intro-line {
+  margin: 0.3rem 0;
+  font-size: 1.1rem;
+  color: #e6edf3;
+}
+
+.intro-run {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #16a34a;
+}
+
+@keyframes introFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .screen-stat {
   margin: 0.2rem 0;
   font-size: 1.1rem;

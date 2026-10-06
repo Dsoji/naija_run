@@ -19,6 +19,7 @@ export class Thief {
   private readonly group: THREE.Object3D
   private traffic: THREE.Object3D[] = []
   private parked = false
+  private tutorial = false
   visible = false
 
   constructor(scene: THREE.Scene) {
@@ -28,9 +29,15 @@ export class Thief {
     scene.add(this.group)
   }
 
+  /** Tutorial: show the thief from the start and always hint the true side. */
+  setTutorial(on: boolean): void {
+    this.tutorial = on
+  }
+
   reset(): void {
     this.visible = false
     this.parked = false
+    this.tutorial = false
     this.group.visible = false
     for (const t of this.traffic) {
       this.scene.remove(t)
@@ -64,7 +71,7 @@ export class Thief {
    *  high enough. Returns whether the thief is visible this frame. */
   update(track: Track, player: Player, chaseValue: number): boolean {
     if (this.parked) return true // stays put as the CAUGHT target
-    if (chaseValue < CONFIG.THIEF_VISIBLE_AT) {
+    if (!this.tutorial && chaseValue < CONFIG.THIEF_VISIBLE_AT) {
       this.visible = false
       this.group.visible = false
       return false
@@ -97,7 +104,7 @@ export class Thief {
 
   private decideHint(junction: TileInfo, chaseValue: number): Side {
     const correct = junction.correct ?? 'L'
-    if (chaseValue >= 60) return correct // strong chase: always truthful
+    if (this.tutorial || chaseValue >= 60) return correct // tutorial / strong chase: truthful
     return Math.random() < 0.7 ? correct : other(correct)
   }
 

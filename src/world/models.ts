@@ -288,6 +288,56 @@ export function buildNPC(kind: NpcKind): THREE.Object3D {
   return g
 }
 
+// A glowing green "this way" arrow laid flat on the road, pointing +Z (local).
+// Used for revealTurn/fakeTurn — identical visual either way (that's the point).
+const ARROW_MAT = new THREE.MeshStandardMaterial({
+  color: 0x39ff6a,
+  emissive: 0x39ff6a,
+  emissiveIntensity: 0.6,
+  roughness: 0.4,
+})
+export function buildArrow(): THREE.Object3D {
+  const g = new THREE.Group()
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 1.6), ARROW_MAT)
+  shaft.position.set(0, 0.08, 0.1)
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.9, 4), ARROW_MAT)
+  head.rotation.x = Math.PI / 2 // apex points +Z, lying flat
+  head.position.set(0, 0.08, 1.3)
+  g.add(shaft, head)
+  return g
+}
+
+/** Police escort car: white body, blue stripe, flashing red/blue light bar. */
+export function buildPoliceCar(): THREE.Object3D {
+  const g = new THREE.Group()
+  const white = new THREE.MeshStandardMaterial({ color: 0xeef2f6, roughness: 0.5 })
+  const blue = new THREE.MeshStandardMaterial({ color: 0x1b4fd0, roughness: 0.6 })
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 3.4), white)
+  body.position.y = 0.75
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.7), white)
+  cabin.position.y = 1.35
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.3, 3.42), blue)
+  stripe.position.y = 0.7
+  g.add(body, cabin, stripe)
+  const bar = new THREE.Group()
+  bar.position.set(0, 1.78, 0)
+  const lr = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.3), new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.9 }))
+  lr.position.x = -0.25
+  const lb = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.3), new THREE.MeshStandardMaterial({ color: 0x2b6bff, emissive: 0x2b6bff, emissiveIntensity: 0.9 }))
+  lb.position.x = 0.25
+  bar.add(lr, lb)
+  g.add(bar)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.28, 12), M.tyre)
+      w.rotation.z = Math.PI / 2
+      w.position.set(sx * 0.85, 0.32, sz * 1.1)
+      g.add(w)
+    }
+  }
+  return g
+}
+
 export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {

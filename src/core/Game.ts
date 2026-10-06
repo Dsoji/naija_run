@@ -5,7 +5,8 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
-import { rightOf, type EncounterInstance } from '../world/Tile'
+import { rightOf, turn, type EncounterInstance, type Side, type TileInfo } from '../world/Tile'
+import { buildArrow, buildPoliceCar } from '../world/models'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -20,6 +21,11 @@ import { HUD } from '../ui/HUD'
 import { DialogueUI } from '../ui/DialogueUI'
 
 export type GameState = 'INTRO' | 'RUNNING' | 'ENCOUNTER' | 'CAUGHT' | 'GAMEOVER'
+
+const UP_AXIS = new THREE.Vector3(0, 1, 0)
+function other(s: Side): Side {
+  return s === 'L' ? 'R' : 'L'
+}
 
 export interface GameHooks {
   mount: HTMLElement // canvas host (the game area)
@@ -44,6 +50,8 @@ export class Game {
   private readonly dialogue: DialogueUI
   private inEncounter = false
   private activeEncounter: EncounterInstance | null = null
+  private policeAssistTimer = 0
+  private policeCar: THREE.Object3D | null = null
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -204,6 +212,8 @@ export class Game {
     this.dialogue.close()
     this.inEncounter = false
     this.activeEncounter = null
+    this.policeAssistTimer = 0
+    if (this.policeCar) this.policeCar.visible = false
     this.clock.setTimeScale(1)
     this.track.reset()
     this.player.reset()
@@ -250,7 +260,7 @@ export class Game {
     if (choice) this.applyEffects(this.encounters.resolve(choice), e)
   }
 
-  private applyEffects(effects: Effect[], _e: EncounterInstance): void {
+  private applyEffects(effects: Effect[], e: EncounterInstance): void {
     for (const fx of effects) {
       switch (fx.kind) {
         case 'chase':
@@ -263,12 +273,81 @@ export class Game {
         case 'bark':
           this.hud.toast(`${fx.speaker}: ${fx.line}`, 'info')
           break
-        // revealTurn / fakeTurn / policeAssist / protection → Phase 4.2
+        case 'revealTurn':
+          this.markJunction(e.junction, e.junction.correct ?? 'L')
+          this.hud.toast('He went that way →', 'info')
+          break
+        case 'fakeTurn':
+          this.markJunction(e.junction, other(e.junction.correct ?? 'L'))
+          // No "scam" hint — it must look identical to a real reveal.
+          break
+        case 'protection':
+          this.player.protect(fx.seconds)
+          this.hud.toast('Covered! 🛡', 'info')
+          break
+        case 'policeAssist':
+          this.startPoliceAssist(fx.seconds)
+          break
         // shortcut → Phase 5
         default:
           break
       }
     }
+  }
+
+  /** Place the glowing "this way" arrow on one branch of a junction (child of
+   *  the junction group, so it survives branch disposal on commit). */
+  private markJunction(junction: TileInfo, side: Side): void {
+    const dir = turn(junction.entryDir, side)
+    const arrow = buildArrow()
+    arrow.position.set(dir.x * (CONFIG.TILE_LEN / 2 + 5), 0, dir.z * (CONFIG.TILE_LEN / 2 + 5))
+    arrow.rotateOnWorldAxis(UP_AXIS, Math.atan2(dir.x, dir.z))
+    junction.group.add(arrow)
+  }
+
+  private startPoliceAssist(seconds: number): void {
+    this.policeAssistTimer = seconds
+    if (!this.policeCar) {
+      this.policeCar = buildPoliceCar()
+      this.scene.add(this.policeCar)
+    }
+    this.policeCar.visible = true
+    this.hud.toast('POLICE ASSIST!', 'info')
+  }
+
+  /** Each frame while active: +1 chase/s, clear the centre lane ahead, and keep
+   *  the escort car running ahead of the player. */
+  private updatePoliceAssist(sdt: number): void {
+    if (this.policeAssistTimer <= 0) return
+    this.policeAssistTimer -= sdt
+    this.chase.add(sdt)
+
+    const tiles = this.track.committed
+    for (let i = this.player.currentIndex; i <= this.player.currentIndex + 2; i++) {
+      const tile = tiles[i]
+      if (!tile) continue
+      for (const ob of tile.obstacles) {
+        if (ob.gone) continue
+        if (Math.round(ob.lateral / CONFIG.LANE_W) === 0) {
+          ob.gone = true
+          if (ob.mesh) ob.mesh.visible = false
+        }
+      }
+    }
+
+    if (this.policeCar) {
+      const h = this.player.heading
+      const r = rightOf(h)
+      const p = this.player.position
+      this.policeCar.position.set(
+        p.x - r.x * this.player.lateral + h.x * CONFIG.ESCORT_AHEAD,
+        0,
+        p.z - r.z * this.player.lateral + h.z * CONFIG.ESCORT_AHEAD,
+      )
+      this.policeCar.rotation.set(0, Math.atan2(-h.x, -h.z), 0)
+    }
+
+    if (this.policeAssistTimer <= 0 && this.policeCar) this.policeCar.visible = false
   }
 
   private togglePause(): void {
@@ -311,6 +390,8 @@ export class Game {
     this.dialogue.close()
     this.inEncounter = false
     this.activeEncounter = null
+    this.policeAssistTimer = 0
+    if (this.policeCar) this.policeCar.visible = false
     this.clock.setTimeScale(1)
   }
 
@@ -356,7 +437,12 @@ export class Game {
         if (tile) {
           const hit = this.obstacles.collide(this.player, tile)
           if (hit.kind === 'crash') {
-            this.player.kill()
+            if (this.player.consumeProtection()) {
+              this.player.stumble()
+              this.hud.toast('Shielded!', 'info')
+            } else {
+              this.player.kill()
+            }
           } else if (hit.kind === 'stumble') {
             this.player.stumble()
             this.chase.add(CONFIG.CHASE_STUMBLE)
@@ -387,6 +473,7 @@ export class Game {
         this.pickups.update(this.track.committed, this.player.currentIndex, sdt)
         this.encounters.setDistance(this.player.distance)
         this.encounters.update(this.track.committed, this.player.currentIndex, dt)
+        this.updatePoliceAssist(sdt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
         this.chase.update(sdt)

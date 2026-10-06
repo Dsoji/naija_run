@@ -53,6 +53,8 @@ export class Player {
   private readonly legL: THREE.Mesh
   private readonly legR: THREE.Mesh
   private readonly body: THREE.Group
+  private readonly shield: THREE.Mesh
+  private protectTimer = 0
   private readonly track: Track
   private readonly clock: Clock
   private readonly onCrash: () => void
@@ -86,6 +88,17 @@ export class Player {
     this.legR.position.set(0.16, 0.4, 0)
     this.body.add(torso, head, this.legL, this.legR)
     this.group.add(this.body)
+
+    // Protection shield ring (hidden unless protected).
+    this.shield = new THREE.Mesh(
+      new THREE.TorusGeometry(0.9, 0.08, 8, 20),
+      new THREE.MeshStandardMaterial({ color: 0x4cc9ff, emissive: 0x4cc9ff, emissiveIntensity: 0.7, transparent: true, opacity: 0.8 }),
+    )
+    this.shield.rotation.x = Math.PI / 2
+    this.shield.position.y = 1.0
+    this.shield.visible = false
+    this.group.add(this.shield)
+
     scene.add(this.group)
   }
 
@@ -105,6 +118,8 @@ export class Player {
     this.jumpT = 0
     this.slideT = 0
     this.runPhase = 0
+    this.protectTimer = 0
+    this.shield.visible = false
     this.body.scale.set(1, 1, 1)
     this.body.rotation.set(0, 0, 0)
     this.legL.rotation.set(0, 0, 0)
@@ -143,6 +158,22 @@ export class Player {
   stumble(): void {
     if (this.state === 'DEAD') return
     this.slowFactor = Math.min(this.slowFactor, CONFIG.STUMBLE_SPEED)
+  }
+
+  /** Grant a protective shield for `seconds` (spec §7: forgives one crash). */
+  protect(seconds: number): void {
+    this.protectTimer = Math.max(this.protectTimer, seconds)
+    this.shield.visible = true
+  }
+  get isProtected(): boolean {
+    return this.protectTimer > 0
+  }
+  /** Spend the shield to absorb a crash. Returns true if it was available. */
+  consumeProtection(): boolean {
+    if (this.protectTimer <= 0) return false
+    this.protectTimer = 0
+    this.shield.visible = false
+    return true
   }
   private get currentTile(): TileInfo {
     return this.track.committed[this.currentIndex]
@@ -254,6 +285,12 @@ export class Player {
         this.crash()
         return
       }
+    }
+
+    if (this.protectTimer > 0) {
+      this.protectTimer -= dt
+      this.shield.rotation.z += dt * 3
+      if (this.protectTimer <= 0) this.shield.visible = false
     }
 
     this.updateVertical(dt)

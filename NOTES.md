@@ -115,6 +115,17 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
   Encounters (Phase 4: revealTurn, clues, chase gains) are what make CAUGHT
   realistically achievable. For now, correct turns + clues are the only climb.
 
+## Phase 4 — Encounters — DONE (except shortcut→MARKET, Phase 5)
+- 4.1 EncounterSystem (spawn 2 tiles before a junction, cooldown/gates/no-repeat),
+  slow-mo trigger, DialogueUI (cost-disabled, countdown, auto-ignore), NPC models,
+  3 data files; effects chase/money/bark.
+- 4.2 revealTurn/fakeTurn (identical glowing arrow on a junction branch — correct
+  vs wrong), protection (shield absorbs one crash), policeAssist (escort car,
+  +1 chase/s, clears centre-lane obstacles ahead for N s).
+- `shortcut: MARKET` still a no-op until Phase 5.
+- policeAssist clears centre-lane obstacles by marking them gone + hiding mesh
+  (all obstacles now store a mesh ref).
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

@@ -36,6 +36,7 @@ export const CONFIG = {
   ENCOUNTER_TRIGGER_DIST: 15, // metres before the NPC that opens the dialogue
   ENCOUNTER_CHANCE: 0.7, // chance a junction gets an encounter (subject to cooldown)
   ENCOUNTER_COOLDOWN: 2, // junctions to wait between encounters
+  ESCORT_AHEAD: 12, // metres the police-assist car runs ahead of the player
 
   // --- Chase ----------------------------------------------------------------
   CHASE_START: 10,

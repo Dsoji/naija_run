@@ -117,7 +117,6 @@ export class Obstacles {
     placeLocal(visual, info.entryDir, rightOf(info.entryDir), along, lateral)
     if (opts?.faceReverse) visual.rotateOnWorldAxis(UP, Math.PI) // face the player
     info.group.add(visual)
-    const moving = opts?.drift !== undefined || opts?.alongVel !== undefined
     info.obstacles.push({
       along,
       lateral,
@@ -130,7 +129,7 @@ export class Obstacles {
       sideSwipe: kind.sideSwipe,
       drift: opts?.drift,
       alongVel: opts?.alongVel,
-      mesh: moving ? visual : undefined,
+      mesh: visual,
     })
   }
 

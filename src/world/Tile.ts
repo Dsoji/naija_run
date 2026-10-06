@@ -54,6 +54,7 @@ export interface ObstacleBox {
   penalty: number // ₦ lost on a stumble
   sideSwipe?: boolean // dodgeable solid: clipping it mid-lane-change is a stumble, not a crash
   hit?: boolean // set once a stumble has been consumed (so it fires only once)
+  announced?: boolean // Nero has already called this obstacle out (market)
   drift?: number // signed lateral speed (m/s) for moving obstacles (goat)
   alongVel?: number // signed along speed (m/s) for oncoming traffic (negative = toward player)
   gone?: boolean // an oncoming vehicle that has passed the player (ignored by collision)

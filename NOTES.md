@@ -126,6 +126,15 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - policeAssist clears centre-lane obstacles by marking them gone + hiding mesh
   (all obstacles now store a mesh ref).
 
+## Phase 5 — Nero market shortcut — DONE
+- 5.1 MARKET theme (canopies + stalls), shortcut re-themes the correct branch,
+  Track lays MARKET_LEN market tiles, +15 chase on exit.
+- 5.2 Nero runs NERO_AHEAD m ahead in the market and calls JUMP!/SLIDE!/LEFT!/
+  RIGHT! ~1s before each obstacle (throttled, each obstacle announced once).
+- All encounter effects now fully implemented; `shortcut` no longer a no-op.
+
+## Encounters now fully pause the game (owner override of spec §7 slow-mo).
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

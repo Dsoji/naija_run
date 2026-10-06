@@ -5,8 +5,8 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
-import { rightOf, turn, type EncounterInstance, type Side, type TileInfo } from '../world/Tile'
-import { buildArrow, buildPoliceCar } from '../world/models'
+import { rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo } from '../world/Tile'
+import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -52,6 +52,10 @@ export class Game {
   private activeEncounter: EncounterInstance | null = null
   private policeAssistTimer = 0
   private policeCar: THREE.Object3D | null = null
+  private neroGuide: THREE.Object3D | null = null
+  private neroShown = false
+  private neroPhase = 0
+  private calloutCooldown = 0
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -219,6 +223,9 @@ export class Game {
     this.activeEncounter = null
     this.policeAssistTimer = 0
     if (this.policeCar) this.policeCar.visible = false
+    this.neroShown = false
+    this.calloutCooldown = 0
+    if (this.neroGuide) this.neroGuide.visible = false
     this.clock.setTimeScale(1)
     this.track.reset()
     this.player.reset()
@@ -320,6 +327,64 @@ export class Game {
     this.hud.toast('Comot for market! Chase up! 🔥', 'info')
   }
 
+  /** Nero runs ahead through the market, calling out the next obstacle. */
+  private updateNero(tile: TileInfo | undefined, sdt: number): void {
+    const onMarket = !!tile?.market
+    if (onMarket && !this.neroShown) {
+      if (!this.neroGuide) {
+        this.neroGuide = buildNPC('nero')
+        this.scene.add(this.neroGuide)
+      }
+      this.neroGuide.visible = true
+      this.neroShown = true
+    } else if (!onMarket && this.neroShown) {
+      if (this.neroGuide) this.neroGuide.visible = false
+      this.neroShown = false
+    }
+    if (!this.neroShown || !this.neroGuide || !tile) return
+
+    const h = this.player.heading
+    const r = rightOf(h)
+    const p = this.player.position
+    this.neroPhase += sdt * 8
+    this.neroGuide.position.set(
+      p.x - r.x * this.player.lateral + h.x * CONFIG.NERO_AHEAD,
+      Math.abs(Math.sin(this.neroPhase)) * 0.12,
+      p.z - r.z * this.player.lateral + h.z * CONFIG.NERO_AHEAD,
+    )
+    this.neroGuide.rotation.set(0, Math.atan2(-h.x, -h.z), 0)
+
+    this.calloutCooldown -= sdt
+    if (this.calloutCooldown <= 0) {
+      const call = this.nextCallout(tile)
+      if (call) {
+        this.hud.toast(call, 'info')
+        this.calloutCooldown = CONFIG.CALLOUT_COOLDOWN
+      }
+    }
+  }
+
+  private nextCallout(tile: TileInfo): string | null {
+    const look = CONFIG.CALLOUT_LOOKAHEAD
+    let best: { d: number; ob: ObstacleBox } | null = null
+    const consider = (ob: ObstacleBox, d: number) => {
+      if (d > 0 && d <= look && !ob.announced && !ob.gone && (!best || d < best.d)) best = { d, ob }
+    }
+    for (const ob of tile.obstacles) consider(ob, ob.along - this.player.distAlong)
+    const next = this.track.committed[this.player.currentIndex + 1]
+    if (next) {
+      for (const ob of next.obstacles) {
+        consider(ob, CONFIG.TILE_LEN - this.player.distAlong + ob.along)
+      }
+    }
+    if (!best) return null
+    const chosen = best as { d: number; ob: ObstacleBox }
+    chosen.ob.announced = true
+    if (chosen.ob.action === 'SLIDE') return 'SLIDE!'
+    if (chosen.ob.action === 'JUMP') return 'JUMP!'
+    return Math.round(chosen.ob.lateral / CONFIG.LANE_W) > 0 ? 'LEFT!' : 'RIGHT!'
+  }
+
   private startPoliceAssist(seconds: number): void {
     this.policeAssistTimer = seconds
     if (!this.policeCar) {
@@ -407,6 +472,8 @@ export class Game {
     this.activeEncounter = null
     this.policeAssistTimer = 0
     if (this.policeCar) this.policeCar.visible = false
+    this.neroShown = false
+    if (this.neroGuide) this.neroGuide.visible = false
     this.clock.setTimeScale(1)
   }
 
@@ -489,6 +556,7 @@ export class Game {
         this.encounters.setDistance(this.player.distance)
         this.encounters.update(this.track.committed, this.player.currentIndex, dt)
         this.updatePoliceAssist(sdt)
+        this.updateNero(this.track.committed[this.player.currentIndex], sdt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
         this.chase.update(sdt)

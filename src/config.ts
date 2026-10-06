@@ -16,8 +16,8 @@ export const CONFIG = {
   TILE_LEN: 20,
   TILES_AHEAD: 12,
   TILES_BEHIND: 3,
-  TURN_WINDOW_DIST: 6, // metres before a corner/junction centre where a turn registers
-  TURN_BUFFER_MS: 150, // early turn presses are buffered this long
+  TURN_WINDOW_DIST: 7, // metres before a corner/junction centre where a turn registers (7.1: +1 for fairness at speed)
+  TURN_BUFFER_MS: 180, // early turn presses are buffered this long (7.1: 150→180)
   CAMERA_TURN_TIME: 0.25, // seconds for the camera yaw to lerp through a turn
   JUNCTION_EVERY_MIN: 4, // straights between junctions (inclusive range)
   JUNCTION_EVERY_MAX: 7,
@@ -41,7 +41,7 @@ export const CONFIG = {
   // --- Chase ----------------------------------------------------------------
   CHASE_START: 10,
   THIEF_VISIBLE_AT: 40,
-  CHASE_DECAY: 0.5, // per second when the thief has not been seen for 20 s
+  CHASE_DECAY: 0.4, // per second when the thief has not been seen for 20 s (7.1: 0.5→0.4, less punishing)
   CHASE_CORRECT_TURN: 6,
   CHASE_WRONG_TURN: -8,
   CHASE_CLUE: 8,

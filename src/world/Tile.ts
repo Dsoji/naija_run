@@ -96,6 +96,7 @@ export interface TileInfo {
   exitDirR?: Vec2
   requiresTurn: boolean
   correct?: Side // junction's true side (assigned at spawn; used from Phase 3)
+  thiefHint?: Side // the side the thief is shown taking (true ~70%, else decoy)
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */
   next?: TileInfo

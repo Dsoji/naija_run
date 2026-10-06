@@ -9,6 +9,7 @@ import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
 import { ChaseMeter } from '../chase/ChaseMeter'
+import { Thief } from '../chase/Thief'
 import { Player } from '../player/Player'
 import { CameraRig } from '../player/CameraRig'
 import { Screens } from '../ui/Screens'
@@ -34,6 +35,7 @@ export class Game {
   private readonly obstacles: Obstacles
   private readonly pickups: Pickups
   private readonly chase = new ChaseMeter()
+  private readonly thief: Thief
   private readonly player: Player
   private readonly rig: CameraRig
   private readonly input: Input
@@ -88,6 +90,7 @@ export class Game {
       this.obstacles.decorate(t)
       this.pickups.decorate(t)
     })
+    this.thief = new Thief(this.scene)
     this.player = new Player(
       this.scene,
       this.track,
@@ -174,6 +177,7 @@ export class Game {
     this.screens.hide()
     this.obstacles.reset()
     this.chase.reset()
+    this.thief.reset()
     this.track.reset()
     this.player.reset()
     this.rig.snap(this.player)
@@ -260,10 +264,12 @@ export class Game {
         this.player.currentIndex -= removed
         this.chase.update(sdt)
         this.chase.onDistance(this.player.distance)
+        const thiefSeen = this.thief.update(this.track, this.player, this.chase.value)
+        if (thiefSeen) this.chase.markSeen()
         this.rig.update(this.player, dt)
         this.ground.position.set(this.player.position.x, -0.2, this.player.position.z)
         this.hud.setDistance(this.player.distance)
-        this.hud.setChase(this.chase.value)
+        this.hud.setChase(this.chase.value, thiefSeen)
       }
     }
 

@@ -202,6 +202,40 @@ export function buildClue(): THREE.Object3D {
   return g
 }
 
+/** The thief's car: a red sedan with wheels and glowing tail lights. */
+export function buildThief(): THREE.Object3D {
+  const g = new THREE.Group()
+  const red = new THREE.MeshStandardMaterial({ color: 0xc0271d, roughness: 0.5, metalness: 0.2 })
+  const tail = new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.8 })
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 3.4), red)
+  body.position.y = 0.75
+  g.add(body)
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.8), red)
+  cabin.position.y = 1.35
+  g.add(cabin)
+  for (const sz of [-1, 1]) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.5, 0.05), M.glass)
+    win.position.set(0, 1.35, sz * 0.9)
+    g.add(win)
+  }
+  // Tail lights face +Z (the rear, toward a pursuing player when fleeing −Z).
+  for (const sx of [-1, 1]) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.05), tail)
+    t.position.set(sx * 0.6, 0.8, 1.72)
+    g.add(t)
+  }
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.28, 12), M.tyre)
+      w.rotation.z = Math.PI / 2
+      w.position.set(sx * 0.85, 0.32, sz * 1.1)
+      g.add(w)
+    }
+  }
+  return g
+}
+
 export type ModelKind = 'pothole' | 'danfo' | 'keke' | 'barricade' | 'banner' | 'goat'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {

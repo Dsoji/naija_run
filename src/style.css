@@ -482,6 +482,38 @@ a,
   background: rgba(0, 0, 0, 0.6);
 }
 
+/* On-screen jump/slide — touch devices only (swipes work everywhere). */
+.touch-controls {
+  position: absolute;
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 18;
+  display: flex;
+  gap: 0.6rem;
+}
+
+@media (pointer: fine) {
+  .touch-controls {
+    display: none;
+  }
+}
+
+.touch-btn {
+  width: 60px;
+  height: 60px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #e6edf3;
+  font-size: 1.6rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.touch-btn:active {
+  background: rgba(22, 163, 74, 0.55);
+}
+
 /* --- Debug overlay (backtick key) ------------------------------------------ */
 .debug-overlay {
   position: absolute;

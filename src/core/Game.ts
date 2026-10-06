@@ -27,6 +27,20 @@ const UP_AXIS = new THREE.Vector3(0, 1, 0)
 function other(s: Side): Side {
   return s === 'L' ? 'R' : 'L'
 }
+function touchButton(glyph: string, label: string, onTap: () => void): HTMLButtonElement {
+  const b = document.createElement('button')
+  b.type = 'button'
+  b.className = 'touch-btn'
+  b.setAttribute('aria-label', label)
+  b.textContent = glyph
+  // Use touchstart so it responds instantly without the 300ms click delay.
+  b.addEventListener('touchstart', (e) => {
+    e.preventDefault()
+    onTap()
+  })
+  b.addEventListener('click', onTap)
+  return b
+}
 
 export interface GameHooks {
   mount: HTMLElement // canvas host (the game area)
@@ -68,6 +82,7 @@ export class Game {
   private readonly debugEl: HTMLElement
   private readonly pauseBtn: HTMLButtonElement
   private readonly muteBtn: HTMLButtonElement
+  private readonly touchControls: HTMLElement
   private readonly sfx = new Sfx()
   private paused = false
   private money = 0
@@ -168,6 +183,16 @@ export class Game {
     })
     hooks.mount.appendChild(this.muteBtn)
 
+    // On-screen jump/slide for touch (CSS hides these on fine pointers). Swipes
+    // still work; these are for discoverability on phones.
+    this.touchControls = document.createElement('div')
+    this.touchControls.className = 'touch-controls'
+    this.touchControls.hidden = true
+    const jumpBtn = touchButton('⤒', 'Jump', () => this.onAction('up'))
+    const slideBtn = touchButton('⤓', 'Slide', () => this.onAction('down'))
+    this.touchControls.append(jumpBtn, slideBtn)
+    hooks.mount.appendChild(this.touchControls)
+
     this.input = new Input(hooks.mount, (a) => this.onAction(a))
 
     window.addEventListener('resize', () => this.onResize())
@@ -255,6 +280,7 @@ export class Game {
     this.clock.resync()
     this.paused = false
     this.pauseBtn.hidden = false
+    this.touchControls.hidden = false
     this.money = 0
     this.catching = false
     this.catchAtDistance = 0
@@ -463,10 +489,12 @@ export class Game {
     this.paused = !this.paused
     if (this.paused) {
       this.pauseBtn.hidden = true
+      this.touchControls.hidden = true
       this.screens.showPause(() => this.togglePause())
     } else {
       this.screens.hide()
       this.pauseBtn.hidden = false
+      this.touchControls.hidden = false
       this.clock.resync() // avoid a dt spike after the pause
     }
   }
@@ -510,6 +538,7 @@ export class Game {
     this.state = 'CAUGHT'
     this.paused = false
     this.pauseBtn.hidden = true
+    this.touchControls.hidden = true
     this.endRunCleanup()
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
@@ -526,6 +555,7 @@ export class Game {
     this.state = 'GAMEOVER'
     this.paused = false
     this.pauseBtn.hidden = true
+    this.touchControls.hidden = true
     this.sfx.play('crash')
     this.endRunCleanup()
     const best = Math.max(this.hooks.readBest(), this.player.distance)

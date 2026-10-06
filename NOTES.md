@@ -135,6 +135,14 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 
 ## Encounters now fully pause the game (owner override of spec §7 slow-mo).
 
+## Phase 6 — Intro, juice, audio, mobile — DONE
+- 6.1 intro text sequence + first-junction thief tutorial.
+- 6.2 camera shake (stumble/crash), FOV kick with speed, ₦ pickup pop.
+- 6.3 synthesized Web Audio SFX (pickup/jump/crash/horn/siren) + bass music loop
+  + persisted mute (no asset files).
+- 6.4 on-screen jump/slide buttons for touch (pointer:coarse only); swipes still
+  primary. Pause + visibility auto-pause already done in earlier phases.
+
 ## Open questions / TODO
 
 - Clerk production keys needed before deploying the leaderboard (Phase 6.5+).

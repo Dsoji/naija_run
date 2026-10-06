@@ -44,6 +44,17 @@ export class Screens {
     )
   }
 
+  showPause(onResume: () => void): void {
+    this.render(
+      `
+      <h1 class="screen-title">Paused</h1>
+      <p class="screen-sub">Catch your breath.</p>
+      <button type="button" class="screen-btn" data-primary>Resume</button>
+      <ul class="screen-hints"><li>Esc / P or tap Resume to continue</li></ul>`,
+      onResume,
+    )
+  }
+
   showGameOver(stats: GameOverStats, onRestart: () => void): void {
     this.render(
       `

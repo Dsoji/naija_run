@@ -199,10 +199,32 @@ a,
   line-height: 1.7;
 }
 
+/* --- Pause button ---------------------------------------------------------- */
+.pause-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 18;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #e6edf3;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pause-btn:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
 /* --- Debug overlay (backtick key) ------------------------------------------ */
 .debug-overlay {
   position: absolute;
-  top: 0.75rem;
+  top: 4.25rem;
   right: 0.75rem;
   z-index: 15;
   padding: 0.4rem 0.6rem;

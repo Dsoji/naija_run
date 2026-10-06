@@ -32,6 +32,8 @@ export class Game {
   private readonly ground: THREE.Mesh
 
   private readonly debugEl: HTMLElement
+  private readonly pauseBtn: HTMLButtonElement
+  private paused = false
   private frames = 0
   private fpsAccum = 0
   private fps = 0
@@ -75,11 +77,24 @@ export class Game {
     this.debugEl.hidden = true
     hooks.mount.appendChild(this.debugEl)
 
+    // Touch-friendly pause button (also works with a mouse); hidden until play.
+    this.pauseBtn = document.createElement('button')
+    this.pauseBtn.type = 'button'
+    this.pauseBtn.className = 'pause-btn'
+    this.pauseBtn.setAttribute('aria-label', 'Pause')
+    this.pauseBtn.textContent = '❚❚'
+    this.pauseBtn.hidden = true
+    this.pauseBtn.addEventListener('click', () => this.togglePause())
+    hooks.mount.appendChild(this.pauseBtn)
+
     this.input = new Input(hooks.mount, (a) => this.onAction(a))
 
     window.addEventListener('resize', () => this.onResize())
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.clock.resync()
+      if (document.hidden) {
+        this.clock.resync()
+        if (this.state === 'RUNNING' && !this.paused) this.togglePause() // auto-pause
+      }
     })
 
     this.track.reset()
@@ -93,6 +108,14 @@ export class Game {
   private onAction(a: Action): void {
     if (a === 'debug') {
       this.debugEl.hidden = !this.debugEl.hidden
+      return
+    }
+    if (this.paused) {
+      if (a === 'pause' || a === 'confirm' || a === 'up') this.togglePause()
+      return
+    }
+    if (a === 'pause') {
+      this.togglePause()
       return
     }
     // While an overlay is up, a tap / confirm / jump just triggers it.
@@ -124,11 +147,28 @@ export class Game {
     this.player.reset()
     this.rig.snap(this.player)
     this.clock.resync()
+    this.paused = false
+    this.pauseBtn.hidden = false
     this.state = 'RUNNING'
+  }
+
+  private togglePause(): void {
+    if (this.state !== 'RUNNING') return
+    this.paused = !this.paused
+    if (this.paused) {
+      this.pauseBtn.hidden = true
+      this.screens.showPause(() => this.togglePause())
+    } else {
+      this.screens.hide()
+      this.pauseBtn.hidden = false
+      this.clock.resync() // avoid a dt spike after the pause
+    }
   }
 
   private onCrash(): void {
     this.state = 'GAMEOVER'
+    this.paused = false
+    this.pauseBtn.hidden = true
     const best = Math.max(this.hooks.readBest(), this.player.distance)
     this.hooks.writeBest(best)
     this.screens.showGameOver({ distance: this.player.distance, best }, () => this.start())
@@ -138,7 +178,7 @@ export class Game {
     requestAnimationFrame(() => this.loop())
     const dt = this.clock.tick()
 
-    if (this.state === 'RUNNING') {
+    if (this.state === 'RUNNING' && !this.paused) {
       this.player.update(dt)
       if (this.state === 'RUNNING') {
         const removed = this.track.update(this.player.currentIndex)

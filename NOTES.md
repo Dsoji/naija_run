@@ -160,17 +160,152 @@ Decisions and deviations that aren't obvious from the code. Append as we go.
 - 7.3 (pending owner): deploy backend (Render/Helicarrier) + prod Clerk keys +
   CORS + README; needs owner's hosting choice.
 
-## TODO — Naija visual pass (deferred, owner asked 2026-10-06, do "later")
-Goal: stronger Lagos/Nigeria vibe across assets, incl. the runner.
-- Runner: replace capsule+boxes with a human figure — Super Eagles green/white,
-  swinging arms (shoulder/hip pivot groups), sneakers, nicer head. Keep low-poly.
-- Roadside scenery (BIGGEST win — world is currently bare): build Scenery on
-  STRAIGHT tiles (children of tile group so they recycle): buildings in muted
-  pastels with bright shop-sign bands + window rows, electricity poles with
-  sagging wires, kiosks, generators, occasional billboard. Market already has
-  canopies/stalls.
+## Naija visual pass (owner asked 2026-10-06)
+Goal: stronger Lagos/Nigeria vibe across assets.
+
+### Roadside scenery — DONE (2026-10-07)
+- `src/world/Scenery.ts`: `addStreetScenery(group, dir)` called from `Tile.ts`
+  `buildRoad` for every STRAIGHT (not MARKET_ENTRY). Children of the tile group,
+  so they recycle/dispose for free. Visuals only, no colliders.
+- Buildings both sides (continuous street wall): low-poly mass box + roof cap +
+  a road-facing FACADE plane whose CanvasTexture is baked once at module load
+  (window grid with some lit, + ground-floor awning carrying a Nigerian shop name
+  — MAMA PUT, OGA STORES, NAIJA STYLE, CELE PHONES, GRACE VENTURES, …). 10 shared
+  facade/wall material pairs → tiny GPU cost; only geometry churns. ~45% also get
+  a rooftop water tank.
+- Utility poles (per side, 60%) with crossbar/transformer + a sagging wire
+  (QuadraticBezierCurve3 → TubeGeometry) strung across the road when both sides
+  have a pole. Dusty laterite verge strip each side. Kiosks (30%/side).
+- Billboards (22%): posts + board + baked ad texture (GLO/MTN/AIRTEL/DANGOTE/
+  INDOMIE/JUMIA). Expressway lamp standards (18%, Third Mainland vibe): tall pole
+  + arm + emissive head.
+- Monument (6%, rare hero): Lekki–Ikoyi cable-stayed pylon — a leaning concrete
+  pylon with fanned stay-cables to a deck-edge beam. `strut()` helper orients a
+  cylinder between two points. Verified rendering by temporarily bumping to 90%.
+- Perf: shared materials, per-tile geometry disposed via existing disposeTile.
+  tsc clean, `npm run build` OK. Smoke-tested in-browser (Playwright screenshots).
+
+### Characters — DONE (2026-10-07)
+- `src/world/Humanoid.ts`: `buildHumanoid(mats, {plumbob?})` — shared Sims-style
+  low-poly figure. Legs/arms hang from hip/shoulder PIVOT groups so callers swing
+  them (rotation.x). Head (rounded), hair cap, eyes, neck, pelvis, torso. Feet at
+  local y≈0 so it drops onto the road (y=0). Materials passed in (shared) so
+  repeated NPC spawns don't leak materials.
+- Runner (`Player.ts`): uses buildHumanoid (Super Eagles green jersey + white
+  shorts). Run cycle swings legs + counter-swings arms. Slide is now a reclined
+  baseball-slide pose (body.rotation.x eased to ~1.15, legs thrust, arms back) —
+  NOT the old vertical squash (owner: "the bending is supposed to be sliding").
+- NPCs (`models.ts buildNPC`): use buildHumanoid with a green plumbob overhead
+  (the Sims signature); kept each kind's hat/accessory (beret/cap+chain/towel),
+  repositioned for the taller figure.
+- Asset option discussed (not wired): Mixamo (rigged + run/jump/slide clips) for
+  the runner, CC0 Quaternius/Kenney for NPCs, loaded via the MODELS registry.
+  Owner said "proceed" → kept procedural for now.
+
+### Market scenery — upgraded (2026-10-08)
+- The market corridor used a thin 3-canopy/stall decor while the street got the
+  big upgrade. Replaced `Tile.addMarketDecor` with `Scenery.addMarketScenery`:
+  a rainbow overhead canopy tunnel + packed stalls both sides (table + stacked
+  colourful goods + a parasol or cloth roof + sometimes a sack/basket). Visuals
+  only; lanes stay clear (obstacle colliders still come from decorateMarket).
+- Removed the now-unused `matStallWood`/`matCanopy` from Tile.ts.
+- Reworked (owner: "looks like blocks… flow to the city… hard to see the road")
+  then AGAIN from a real market photo (owner: "kiosks and roadside sellers… not
+  city… overhead gaps too small"): market is now an informal street market —
+  `addMarketBackdrop` (low kiosks/shacks with corrugated zinc roofs, NOT tall
+  buildings) + roadside sellers (`addMarketStall`: table OR ground mat of goods)
+  + big colourful `addUmbrella` parasols as the hero element + sacks/baskets.
+  Overhead = at most one narrow tarp per tile (big gaps) so the road/obstacles
+  stay clearly visible. `addBuilding`/bunting no longer used by the market.
+
+### Goat — jumpable + better model (2026-10-08)
+- Goat was `action:'LANE', clearHeight:99` (un-jumpable). Now `action:'JUMP',
+  clearHeight:0.8` so you can jump over it (or still dodge lanes). onHit stays
+  crash; sideSwipe kept; it still drifts across lanes.
+- `models.buildGoat` rebuilt from a box into a recognisable West African dwarf
+  goat in profile (length along X → placeLocal stands it broadside): rounded
+  capsule body, neck + head + dark snout, drooping ears, swept-back horns, short
+  tail, slender legs, pied dark saddle patch.
+
+### "Running through buildings" after a turn — fixed (2026-10-08)
+- Owner: "turned and saw a wall, passed through buildings before I crashed."
+  Root cause: the Track occupancy grid only blocked EXACT cell reuse, so the path
+  could run parallel right next to an earlier street (1 cell / 20m apart). With
+  the new tall buildings, the two streets' building rows (front ~7.9m, depth up
+  to ~9m from each road centre) interpenetrate in the gap → walls across/over the
+  road, and the spiral eventually dead-ends into a crash. Reproduced by forcing
+  frequent junctions + turning one way repeatedly.
+- Fix: `Track.canPlace(cell, from)` — a cell is placeable only if free AND not
+  orthogonally adjacent to any road except the tile it connects from. Used for
+  straight placement, bridge start, `tryJunction`, `branchCells`, and
+  `pickTurnSide`. Keeps streets ≥1 empty cell apart, so building rows never
+  overlap the road. Junctions that would create an adjacent parallel branch are
+  simply not offered. Verified: the same spiral test now stays on clean streets
+  (survived to 121m vs crashing at 67m), normal play unaffected.
+
+### Camera turn smoothing (2026-10-08)
+- Owner: the camera "bounces back then turns" at a junction. Cause: `CameraRig`
+  lerped camera position/aim in WORLD space, so at the pivot the "behind the
+  player" target jumped 90° and the straight-line lerp cut across the corner.
+  Fix: ease a stored `yaw` toward the heading via shortest-arc `lerpAngle`
+  (CAM_YAW_LERP = 0.28s) and derive the camera position from the eased heading —
+  so it swings smoothly around the corner. Verified bounce-free + shortest-path
+  (incl. ±π wrap) by simulation; straights unchanged.
+
+### Bug fixes (2026-10-08)
+- Shield (Agbero "Cover me" / protection) did nothing against solids: `collide`
+  returned `crash` WITHOUT marking the obstacle `hit`, so the shield absorbed it
+  for one frame, then the same still-overlapping solid crashed the player again
+  the next frame (shield already spent). Fix in `Obstacles.collide`: set `ob.hit`
+  on a crash and `continue` past already-`hit` obstacles, so a shielded solid is
+  passed through.
+- Police escort car shot off the map at junctions: it was placed ESCORT_AHEAD
+  straight along the player's current heading, projecting into the no-road cell
+  ahead of a turn, then snapping after the pivot. Fix: `Game.escortPoint(ahead)`
+  walks the committed path forward (turning at tile centres) and holds at a
+  not-yet-committed junction centre, so the car follows the road around corners.
+
+### Toasts — redesigned (2026-10-07)
+- `HUD.toast` kinds now include `'turn'`; `HUD.turnCue(side)` shows a big, pulsing,
+  Super-Eagles-green directional cue ("⬅ FOLLOW AM • LEFT" / "FOLLOW AM • RIGHT ➡").
+  Wired into revealTurn and shortcut effects. All toasts restyled (glass bg, blur,
+  border, shadow, scale-in) and moved to 18vh (clear of the chase bar). CSS in
+  `style.css`; the turn toast uses a 2nd pulse animation (duration `${T}s, 0.7s`).
+
+### Ikoyi Link Bridge — DONE as an approached section (2026-10-07)
+- Owner: the bridge is a milestone you run ONTO after a while, not a roadside prop.
+  Removed the rare roadside pylon from `addStreetScenery`.
+- New `BRIDGE` TileType + `TileInfo.bridge`. `Track` lays a bridge section every
+  `CONFIG.BRIDGE_EVERY` (38) tiles for `BRIDGE_LEN` (7) tiles, straight-only like
+  the market section; the pylon is attached to the middle tile.
+- `Tile.buildRoad` BRIDGE branch: deck road + lane lines + `addBridgeDecor` (wide
+  water plane, blue deck railings + posts each side). `addBridgePylon` (Scenery):
+  a leaning cable-stayed tower with stay-cables fanning to both deck edges.
+- Obstacles/pickups still spawn on bridge tiles (decorator gate includes BRIDGE).
+- `Game` toasts "🌉 Ikoyi Link Bridge" once on entry (watches `curTile.bridge`).
+- Verified by temporarily setting BRIDGE_EVERY=2 and screenshotting, then reverting.
+
+### Rigged GLB runner — DONE (2026-10-07)
+- Owner wanted FIFA/footballer-style characters. Full realism clashes with the
+  low-poly world + is too heavy for web, so we went stylized-but-rigged.
+- Asset: Quaternius "Animated Base Character" (poly.pizza/m/cwYvO5UauX), **CC BY**
+  → `public/models/naija-runner.glb` (2.3 MB, served from /models/). Rigged, with
+  a full clip set (Sprint/Jog/Jump/Roll/Death/Idle/…).
+- `src/world/RunnerModel.ts`: GLTFLoader load + AnimationMixer; maps our clips
+  run→Sprint_Loop, jump→Jump_Loop, slide→Roll, dead→Death01 (LoopOnce clamp).
+  Tints material `M_Main` green (Super Eagles kit).
+- `Player`: loads async; shows the procedural humanoid until it resolves, then
+  hides it and swaps in the GLB (rotation.y=0 to face −z, scale 1.15). `animClip()`
+  maps state→clip each frame; mixer updates even when DEAD so Death plays.
+  Procedural pose code is skipped when the model is active (kept as fallback).
+- Attribution (CC BY): CREDITS.md + a line on the start screen ("Runner model by
+  Quaternius (CC BY)"). Verified run/jump/slide in-game via screenshots.
+- NPCs still use the procedural Humanoid (CC0 Quaternius/Mixamo could replace
+  them later via the same loader pattern).
+
+### Still TODO
 - Polish vehicles/NPCs (destination board on danfo, etc.) if time.
-- Keep perf: simple/merged geometry, dispose with tile.
+- Optional: rigged GLB NPCs via the RunnerModel loader pattern.
 
 ## Open questions / TODO
 

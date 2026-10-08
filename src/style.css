@@ -299,47 +299,84 @@ a,
   line-height: 1.7;
 }
 
-/* --- Toasts (top-centre, 1.5s) --------------------------------------------- */
+.screen-credit {
+  margin: 0.75rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* --- Toasts (upper-centre, below the chase bar) ---------------------------- */
 .hud-toasts {
   position: absolute;
-  top: 3rem;
+  top: 18vh;
   left: 50%;
   transform: translateX(-50%);
   z-index: 14;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   pointer-events: none;
   width: max-content;
-  max-width: 90vw;
+  max-width: 92vw;
 }
 
 .hud-toast {
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65);
+  padding: 0.6rem 1.15rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(24, 30, 40, 0.92), rgba(12, 16, 22, 0.92));
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
-  font-weight: 700;
-  font-size: 0.9rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
   text-align: center;
-  animation: toastInOut 1.5s ease forwards;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  animation: toastInOut 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .hud-toast--clue {
-  background: rgba(245, 196, 0, 0.9);
+  background: linear-gradient(180deg, #ffd34d, #f5b400);
+  border-color: rgba(0, 0, 0, 0.15);
   color: #141414;
+  text-shadow: none;
 }
 
 .hud-toast--money {
-  background: rgba(63, 158, 107, 0.92);
+  background: linear-gradient(180deg, #3fcf86, #22a35f);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* The big "where to run" directional cue. */
+.hud-toast--turn {
+  padding: 0.85rem 1.6rem;
+  font-size: clamp(1.3rem, 5vw, 1.9rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(180deg, #2ecf6b, #159a4c);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 0 0 4px rgba(46, 207, 107, 0.25), 0 14px 36px rgba(0, 0, 0, 0.5);
+  animation:
+    toastInOut 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    turnPulse 0.7s ease-in-out infinite;
 }
 
 @keyframes toastInOut {
-  0% { opacity: 0; transform: translateY(8px); }
-  12% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-8px); }
+  0% { opacity: 0; transform: translateY(14px) scale(0.9); }
+  10% { opacity: 1; transform: translateY(0) scale(1); }
+  82% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-10px) scale(0.96); }
+}
+
+@keyframes turnPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(46, 207, 107, 0.25), 0 14px 36px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 0 10px rgba(46, 207, 107, 0.05), 0 14px 36px rgba(0, 0, 0, 0.5); }
 }
 
 /* --- Encounter dialogue ---------------------------------------------------- */

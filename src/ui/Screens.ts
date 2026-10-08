@@ -43,7 +43,8 @@ export class Screens {
         <li>Swipe or ←/→ to switch lane &amp; turn</li>
         <li>Swipe up / ↑ to jump &nbsp;·&nbsp; swipe down / ↓ to slide</li>
         <li>Follow the thief at junctions — miss a turn and you crash</li>
-      </ul>`,
+      </ul>
+      <p class="screen-credit" style="animation-delay:3.2s">Runner model by Quaternius (CC BY)</p>`,
       onStart,
     )
   }

@@ -30,14 +30,22 @@ export class HUD {
     mount.append(this.dist, this.money, this.chaseWrap, this.toasts)
   }
 
-  /** Flash a transient top-centre message (spec §10): clues, "+₦500", etc. */
-  toast(text: string, kind: 'clue' | 'money' | 'info' = 'info'): void {
+  /** Flash a transient top-centre message (spec §10): clues, "+₦500", etc.
+   *  `turn` is the big, high-visibility "where to run" cue. */
+  toast(text: string, kind: 'clue' | 'money' | 'info' | 'turn' = 'info'): void {
     const t = document.createElement('div')
     t.className = `hud-toast hud-toast--${kind}`
     t.textContent = text
-    t.style.animationDuration = `${CONFIG.TOAST_TIME}s`
+    // in/out spans the toast's lifetime; the turn cue also has a fast pulse.
+    t.style.animationDuration =
+      kind === 'turn' ? `${CONFIG.TOAST_TIME}s, 0.7s` : `${CONFIG.TOAST_TIME}s`
     this.toasts.appendChild(t)
     window.setTimeout(() => t.remove(), CONFIG.TOAST_TIME * 1000)
+  }
+
+  /** Big directional cue telling the player which way to follow the thief. */
+  turnCue(side: 'L' | 'R'): void {
+    this.toast(side === 'L' ? '⬅ FOLLOW AM • LEFT' : 'FOLLOW AM • RIGHT ➡', 'turn')
   }
 
   setDistance(m: number): void {

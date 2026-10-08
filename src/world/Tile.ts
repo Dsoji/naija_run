@@ -7,8 +7,9 @@
 import * as THREE from 'three'
 import { CONFIG } from '../config'
 import type { EncounterDef } from '../encounters/types'
+import { addStreetScenery, addBridgeDecor, addMarketScenery } from './Scenery'
 
-export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY'
+export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY' | 'BRIDGE'
 export type Side = 'L' | 'R'
 
 /** Unit direction on the XZ plane. Components are each -1, 0 or +1. */
@@ -111,6 +112,7 @@ export interface TileInfo {
   thiefHint?: Side // the side the thief is shown taking (true ~70%, else decoy)
   shortcutBranch?: Side // junction branch turned into a market shortcut (Phase 5)
   market?: boolean // this tile is part of a market section
+  bridge?: boolean // this tile is part of an Ikoyi Link Bridge section
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */
   next?: TileInfo
@@ -126,10 +128,6 @@ export interface TileInfo {
 const matAsphalt = new THREE.MeshStandardMaterial({ color: 0x2b2b2e, roughness: 1 })
 const matLine = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1 })
 const matCurb = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 1 })
-const matStallWood = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 1 })
-const matCanopy = [0xef4444, 0x3b82f6, 0x22c55e, 0xf59e0b, 0xa855f7].map(
-  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }),
-)
 
 const HALF = CONFIG.TILE_LEN / 2
 const ROAD_HALF = CONFIG.ROAD_W / 2
@@ -185,7 +183,18 @@ function buildRoad(type: TileType, entryDir: Vec2, dirsOpen: Vec2[]): THREE.Grou
     g.add(laneLine(entryDir, -CONFIG.LANE_W / 2))
     g.add(curb(entryDir, 1))
     g.add(curb(entryDir, -1))
-    if (type === 'MARKET_ENTRY') addMarketDecor(g, entryDir)
+    if (type === 'MARKET_ENTRY') addMarketScenery(g, entryDir)
+    else addStreetScenery(g, entryDir) // Lagos roadside buildings/poles/billboards
+    return g
+  }
+
+  if (type === 'BRIDGE') {
+    // Bridge deck: clean road + lane lines, railings and water instead of curbs
+    // and buildings. The pylon (middle tile only) is attached by the Track.
+    g.add(roadArm(entryDir, -HALF, HALF))
+    g.add(laneLine(entryDir, CONFIG.LANE_W / 2))
+    g.add(laneLine(entryDir, -CONFIG.LANE_W / 2))
+    addBridgeDecor(g, entryDir)
     return g
   }
 
@@ -195,38 +204,6 @@ function buildRoad(type: TileType, entryDir: Vec2, dirsOpen: Vec2[]): THREE.Grou
   g.add(centre)
   for (const d of dirsOpen) g.add(roadArm(d, ROAD_HALF, HALF))
   return g
-}
-
-/** Colourful canopies overhead + wooden stalls at the edges: the Lagos market
- *  corridor look (spec §5, §7). Lanes stay the same width; the stalls just make
- *  it read as tight and busy. */
-function addMarketDecor(g: THREE.Group, dir: Vec2): void {
-  const r = rightOf(dir)
-  const alongs = [-6, 0, 6]
-  alongs.forEach((a, i) => {
-    // Overhead canopy spanning the road.
-    const span = CONFIG.ROAD_W + 2.6
-    const canopyGeo =
-      dir.x === 0 ? new THREE.BoxGeometry(span, 0.22, 1.3) : new THREE.BoxGeometry(1.3, 0.22, span)
-    const canopy = new THREE.Mesh(canopyGeo, matCanopy[i % matCanopy.length])
-    canopy.position.set(dir.x * a, 2.7, dir.z * a)
-    g.add(canopy)
-
-    // A stall on each side of the road.
-    const off = CONFIG.ROAD_W / 2 + 1.0
-    for (const side of [-1, 1]) {
-      const sx = dir.x * a + r.x * off * side
-      const sz = dir.z * a + r.z * off * side
-      const stall = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), matStallWood)
-      stall.position.set(sx, 0.5, sz)
-      const top = new THREE.Mesh(
-        new THREE.BoxGeometry(1.6, 0.2, 1.6),
-        matCanopy[(i + side + 2 + matCanopy.length) % matCanopy.length],
-      )
-      top.position.set(sx, 1.15, sz)
-      g.add(stall, top)
-    }
-  })
 }
 
 export function buildTileMesh(type: TileType, entryDir: Vec2, exitDirs: Vec2[]): THREE.Group {

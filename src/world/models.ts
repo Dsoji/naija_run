@@ -6,6 +6,7 @@
 
 import * as THREE from 'three'
 import { CONFIG } from '../config'
+import { buildHumanoid } from './Humanoid'
 
 // --- shared materials -------------------------------------------------------
 const M = {
@@ -132,24 +133,62 @@ export function buildBanner(roadWidth: number): THREE.Object3D {
   return g
 }
 
-/** Goat: small hide-coloured body, head and little horns, on four legs. */
+/** A small West African dwarf goat, seen in profile (length along X) so its
+ *  silhouette reads clearly: rounded body, neck + head with snout, swept-back
+ *  horns, drooping ears, a short tail, slender legs, and a pied dark patch. */
 export function buildGoat(): THREE.Object3D {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.0), M.goatHide)
-  body.position.y = 0.6
+
+  // Rounded body lying along X.
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.5, 4, 8), M.goatHide)
+  body.rotation.z = Math.PI / 2
+  body.position.set(0, 0.52, 0)
   g.add(body)
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), M.goatHide)
-  head.position.set(0, 0.8, 0.6)
+
+  // Pied dark saddle patch over the rear.
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.12, 0.42), M.goatDark)
+  patch.position.set(-0.18, 0.68, 0)
+  g.add(patch)
+
+  // Neck (angled up toward the front) + head + snout.
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.3, 0.2), M.goatHide)
+  neck.position.set(0.4, 0.66, 0)
+  neck.rotation.z = -0.6
+  g.add(neck)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.24, 0.22), M.goatHide)
+  head.position.set(0.58, 0.8, 0)
   g.add(head)
-  for (const sx of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.25, 6), M.goatDark)
-    horn.position.set(sx * 0.1, 1.02, 0.6)
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.16), M.goatDark)
+  snout.position.set(0.74, 0.74, 0)
+  g.add(snout)
+
+  // Drooping ears.
+  for (const sz of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.1), M.goatHide)
+    ear.position.set(0.55, 0.82, sz * 0.14)
+    ear.rotation.x = sz * 0.5
+    g.add(ear)
+  }
+
+  // Swept-back horns.
+  for (const sz of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.24, 6), M.goatDark)
+    horn.position.set(0.5, 0.95, sz * 0.07)
+    horn.rotation.z = 0.7 // lean back
     g.add(horn)
   }
+
+  // Short upright tail at the rear.
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.08), M.goatHide)
+  tail.position.set(-0.52, 0.62, 0)
+  tail.rotation.z = -0.5
+  g.add(tail)
+
+  // Four slender legs.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), M.goatDark)
-      leg.position.set(sx * 0.18, 0.2, sz * 0.35)
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.34, 0.08), M.goatDark)
+      leg.position.set(sx * 0.26, 0.17, sz * 0.14)
       g.add(leg)
     }
   }
@@ -250,38 +289,43 @@ const NPC_MAT = {
 
 export type NpcKind = 'police' | 'nero' | 'agbero'
 
-export function buildNPC(kind: NpcKind): THREE.Object3D {
-  const g = new THREE.Group()
-  const torsoMat = kind === 'police' ? NPC_MAT.police : kind === 'agbero' ? NPC_MAT.singlet : NPC_MAT.casual
+// Trouser/short colour per NPC kind (shared).
+const NPC_TROUSER = {
+  police: new THREE.MeshStandardMaterial({ color: 0x24324f, roughness: 0.85 }),
+  casual: new THREE.MeshStandardMaterial({ color: 0x2f3a46, roughness: 0.9 }),
+} as const
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.32), torsoMat)
-  torso.position.y = 1.05
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), NPC_MAT.skin)
-  head.position.y = 1.62
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.24), NPC_MAT.black)
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.24), NPC_MAT.black)
-  legL.position.set(-0.15, 0.35, 0)
-  legR.position.set(0.15, 0.35, 0)
-  g.add(torso, head, legL, legR)
+export function buildNPC(kind: NpcKind): THREE.Object3D {
+  const torsoMat = kind === 'police' ? NPC_MAT.police : kind === 'agbero' ? NPC_MAT.singlet : NPC_MAT.casual
+  const { group: g } = buildHumanoid(
+    {
+      shirt: torsoMat,
+      trouser: kind === 'police' ? NPC_TROUSER.police : NPC_TROUSER.casual,
+      skin: NPC_MAT.skin,
+      hair: NPC_MAT.black,
+      shoe: NPC_MAT.black,
+    },
+    { plumbob: true }, // the Sims signature
+  )
 
   if (kind === 'police') {
     const beret = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 12), NPC_MAT.black)
-    beret.position.y = 1.82
+    beret.position.y = 1.98
     beret.rotation.z = 0.12
     g.add(beret)
   } else if (kind === 'nero') {
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), NPC_MAT.red)
-    cap.position.y = 1.78
-    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.22), NPC_MAT.red)
-    brim.position.set(0, 1.74, 0.22)
-    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 16), NPC_MAT.gold)
-    chain.position.y = 1.18
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), NPC_MAT.red)
+    cap.position.y = 1.96
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.24), NPC_MAT.red)
+    brim.position.set(0, 1.92, -0.24) // forward is −z
+    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.03, 8, 16), NPC_MAT.gold)
+    chain.position.y = 1.5
     chain.rotation.x = Math.PI / 2
     g.add(cap, brim, chain)
   } else {
-    // agbero: towel draped over one shoulder, bare arms (singlet).
-    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.6, 0.12), NPC_MAT.towel)
-    towel.position.set(0.3, 1.1, 0)
+    // agbero: towel draped over one shoulder.
+    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.12), NPC_MAT.towel)
+    towel.position.set(0.32, 1.4, 0)
     towel.rotation.z = 0.2
     g.add(towel)
   }

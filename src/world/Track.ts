@@ -21,6 +21,7 @@ import {
   step,
   turn,
 } from './Tile'
+import { addBridgePylon } from './Scenery'
 
 const JUNCTION_STUB = 3 // tiles grown down each branch before the player commits
 
@@ -40,6 +41,8 @@ export class Track {
   private junctionListener: ((committed: TileInfo[]) => void) | null = null
   private marketExitListener: (() => void) | null = null
   private marketRemaining = 0
+  private bridgeRemaining = 0
+  private straightsSinceBridge = 0
 
   constructor(scene: THREE.Scene) {
     this.scene = scene
@@ -74,6 +77,8 @@ export class Track {
     this.nextJunctionAt = 6
     this.straightOnly = false
     this.marketRemaining = 0
+    this.bridgeRemaining = 0
+    this.straightsSinceBridge = 0
 
     // First tile: a straight heading north from the origin cell.
     const first = this.makeTile('STRAIGHT', { gx: 0, gz: 0 }, DIR_N, DIR_N)
@@ -195,6 +200,26 @@ export class Track {
       return
     }
 
+    // Count tiles toward the next Ikoyi Link Bridge crossing.
+    this.straightsSinceBridge++
+
+    // Start a bridge crossing after running a while (straight-only section).
+    if (this.bridgeRemaining === 0 && this.straightsSinceBridge >= CONFIG.BRIDGE_EVERY && this.canPlace(cell, after.cell)) {
+      this.bridgeRemaining = CONFIG.BRIDGE_LEN
+      this.straightsSinceBridge = 0
+    }
+
+    // Bridge section in progress: lay BRIDGE tiles; pylon on the middle one.
+    if (this.bridgeRemaining > 0) {
+      const idx = CONFIG.BRIDGE_LEN - this.bridgeRemaining
+      const t = this.makeTile('BRIDGE', cell, entry, entry)
+      t.bridge = true
+      if (idx === (CONFIG.BRIDGE_LEN >> 1)) addBridgePylon(t.group, entry)
+      this.pushTile(t, after)
+      this.bridgeRemaining--
+      return
+    }
+
     // Time for a junction?
     if (this.straightsSinceJunction >= this.nextJunctionAt && this.tryJunction(after, cell, entry)) {
       return
@@ -211,9 +236,9 @@ export class Track {
       }
     }
 
-    // Default: straight. If the cell ahead is somehow occupied (the path curled
-    // back on itself), a forced turn toward a free side avoids the overlap.
-    if (this.isFree(cell)) {
+    // Default: straight, as long as it stays clear of other streets. If it
+    // would run adjacent to (or over) an existing road, turn away instead.
+    if (this.canPlace(cell, after.cell)) {
       this.pushTile(this.makeTile('STRAIGHT', cell, entry, entry), after)
       this.straightsSinceJunction++
       return
@@ -231,7 +256,7 @@ export class Track {
 
   /** Try to place a T-junction with buildable stubs on both branches. */
   private tryJunction(after: TileInfo, cell: Cell, entry: Vec2): boolean {
-    if (!this.isFree(cell)) return false
+    if (!this.canPlace(cell, after.cell)) return false
     const leftDir = rotateLeft(entry)
     const rightDir = rotateRight(entry)
     const leftCells = this.branchCells(cell, leftDir)
@@ -258,11 +283,13 @@ export class Track {
   /** Plan free cells for a branch of `JUNCTION_STUB` straight tiles. */
   private branchCells(from: Cell, dir: Vec2): Cell[] | null {
     const cells: Cell[] = []
+    let prev = from
     let c = from
     for (let i = 0; i < JUNCTION_STUB; i++) {
       c = step(c, dir)
-      if (!this.isFree(c) || cells.some((p) => p.gx === c.gx && p.gz === c.gz)) return null
+      if (!this.canPlace(c, prev) || cells.some((p) => p.gx === c.gx && p.gz === c.gz)) return null
       cells.push(c)
+      prev = c
     }
     return cells
   }
@@ -285,7 +312,7 @@ export class Track {
     const options: Side[] = []
     for (const side of ['L', 'R'] as Side[]) {
       const onward = step(cell, turn(entry, side))
-      if (this.isFree(onward)) options.push(side)
+      if (this.canPlace(onward, cell)) options.push(side)
     }
     if (options.length === 0) return null
     return options[randInt(0, options.length - 1)]
@@ -295,6 +322,26 @@ export class Track {
 
   private isFree(c: Cell): boolean {
     return !this.occupied.has(cellKey(c))
+  }
+
+  /** A cell is placeable if it's free AND not orthogonally adjacent to any road
+   *  other than the tile we're connecting from. This keeps streets from running
+   *  parallel right next to each other — which made their building rows overlap
+   *  and look like you were running through walls after a turn. */
+  private canPlace(cell: Cell, from: Cell): boolean {
+    if (!this.isFree(cell)) return false
+    const nbrs = [
+      { x: 1, z: 0 },
+      { x: -1, z: 0 },
+      { x: 0, z: 1 },
+      { x: 0, z: -1 },
+    ]
+    for (const d of nbrs) {
+      const n = step(cell, d)
+      if (n.gx === from.gx && n.gz === from.gz) continue
+      if (this.occupied.has(cellKey(n))) return false
+    }
+    return true
   }
 
   private makeTile(
@@ -318,7 +365,8 @@ export class Track {
       obstacles: [],
       pickups: [],
     }
-    if ((type === 'STRAIGHT' || type === 'MARKET_ENTRY') && this.decorator) this.decorator(info)
+    if ((type === 'STRAIGHT' || type === 'MARKET_ENTRY' || type === 'BRIDGE') && this.decorator)
+      this.decorator(info)
     return info
   }
 

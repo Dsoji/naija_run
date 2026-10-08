@@ -6,7 +6,7 @@ import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
 import { Sfx } from './Sfx'
-import { rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo } from '../world/Tile'
+import { cellCenter, rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo, type Vec2 } from '../world/Tile'
 import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
@@ -94,6 +94,7 @@ export class Game {
   private paused = false
   private money = 0
   private catching = false
+  private onBridge = false
   private catchAtDistance = 0
   private runStartMs = 0
   private frames = 0
@@ -281,6 +282,7 @@ export class Game {
     this.calloutCooldown = 0
     if (this.neroGuide) this.neroGuide.visible = false
     this.clock.setTimeScale(1)
+    this.onBridge = false
     this.track.reset()
     this.player.reset()
     this.rig.snap(this.player)
@@ -351,7 +353,7 @@ export class Game {
           break
         case 'revealTurn':
           this.markJunction(e.junction, e.junction.correct ?? 'L')
-          this.hud.toast('He went that way →', 'info')
+          this.hud.turnCue(e.junction.correct ?? 'L')
           break
         case 'fakeTurn':
           this.markJunction(e.junction, other(e.junction.correct ?? 'L'))
@@ -367,6 +369,7 @@ export class Game {
         case 'shortcut':
           this.track.startShortcut(e.junction)
           this.markJunction(e.junction, e.junction.correct ?? 'L') // guide into the market
+          this.hud.turnCue(e.junction.correct ?? 'L')
           break
         default:
           break
@@ -479,18 +482,50 @@ export class Game {
     }
 
     if (this.policeCar) {
-      const h = this.player.heading
-      const r = rightOf(h)
-      const p = this.player.position
-      this.policeCar.position.set(
-        p.x - r.x * this.player.lateral + h.x * CONFIG.ESCORT_AHEAD,
-        0,
-        p.z - r.z * this.player.lateral + h.z * CONFIG.ESCORT_AHEAD,
-      )
-      this.policeCar.rotation.set(0, Math.atan2(-h.x, -h.z), 0)
+      // Follow the road ahead (around corners), not a straight projection — so
+      // the car doesn't shoot off the map at a junction before turning.
+      const e = this.escortPoint(CONFIG.ESCORT_AHEAD)
+      this.policeCar.position.set(e.x, 0, e.z)
+      this.policeCar.rotation.set(0, e.yaw, 0)
     }
 
     if (this.policeAssistTimer <= 0 && this.policeCar) this.policeCar.visible = false
+  }
+
+  /** Walk `ahead` metres forward along the committed path from the player's
+   *  current spot, turning at tile centres. Clamps at a not-yet-committed
+   *  junction so the car waits at the corner instead of flying straight on. */
+  private escortPoint(ahead: number): { x: number; z: number; yaw: number } {
+    const HALF = CONFIG.TILE_LEN / 2
+    const tiles = this.track.committed
+    let i = this.player.currentIndex
+    let local = this.player.distAlong
+    let remaining = ahead
+    while (i < tiles.length) {
+      const avail = CONFIG.TILE_LEN - local
+      if (remaining <= avail) {
+        local += remaining
+        break
+      }
+      if (i + 1 >= tiles.length) {
+        local = CONFIG.TILE_LEN
+        break
+      }
+      remaining -= avail
+      i += 1
+      local = 0
+    }
+    const tile = tiles[Math.min(i, tiles.length - 1)]
+    const pending = this.track.pendingJunction()
+    if (tile === pending && local > HALF) local = HALF // hold at the corner
+    const useExit = tile.requiresTurn && local > HALF && tile !== pending
+    const dir: Vec2 = useExit ? tile.exitDir : tile.entryDir
+    const center = cellCenter(tile.cell)
+    return {
+      x: center.x + dir.x * (local - HALF),
+      z: center.z + dir.z * (local - HALF),
+      yaw: Math.atan2(-dir.x, -dir.z),
+    }
   }
 
   private togglePause(): void {
@@ -653,6 +688,16 @@ export class Game {
         this.updateNero(this.track.committed[this.player.currentIndex], sdt)
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
+
+        // Announce the Ikoyi Link Bridge once, on entry.
+        const curTile = this.track.committed[this.player.currentIndex]
+        if (curTile?.bridge && !this.onBridge) {
+          this.onBridge = true
+          this.hud.toast('🌉 Ikoyi Link Bridge', 'info')
+        } else if (curTile && !curTile.bridge && this.onBridge) {
+          this.onBridge = false
+        }
+
         this.chase.update(sdt)
         this.chase.onDistance(this.player.distance)
         if (this.chase.isFull && !this.catching) this.tryStartCatch()

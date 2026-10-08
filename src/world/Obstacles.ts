@@ -39,7 +39,7 @@ const PER_LANE: Record<string, KindDef> = {
 const PER_LANE_IDS = Object.keys(PER_LANE)
 
 const BANNER: KindDef = { model: 'banner', action: 'SLIDE', halfAlong: 0.3, halfLateral: CONFIG.ROAD_W / 2, clearHeight: 0, onHit: 'crash', penalty: 0 }
-const GOAT: KindDef = { model: 'goat', action: 'LANE', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 99, onHit: 'crash', penalty: 0, sideSwipe: true }
+const GOAT: KindDef = { model: 'goat', action: 'JUMP', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 0.8, onHit: 'crash', penalty: 0, sideSwipe: true }
 
 // Oncoming traffic: a vehicle driving TOWARD the player in one lane — dodge it.
 const ONCOMING: KindDef[] = [
@@ -197,7 +197,9 @@ export class Obstacles {
   collide(player: Player, tile: TileInfo): Collision {
     let stumble: Collision | null = null
     for (const ob of tile.obstacles) {
-      if (ob.gone) continue
+      // `hit` obstacles are already resolved (stumbled, or a crash absorbed by a
+      // shield) — ignore them so the player passes through instead of re-colliding.
+      if (ob.gone || ob.hit) continue
       const dAlong = Math.abs(player.distAlong - ob.along)
       const dLat = Math.abs(player.lateral - ob.lateral)
       const overlaps =
@@ -230,6 +232,9 @@ export class Obstacles {
         }
       }
 
+      // A real crash. Mark it resolved so that if a shield absorbs it, the same
+      // solid doesn't immediately crash the player again the next frame.
+      ob.hit = true
       return { kind: 'crash' }
     }
     return stumble ?? { kind: 'none' }

@@ -6,6 +6,8 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import type { Track } from '../world/Track'
 import type { Clock } from '../core/Clock'
+import { buildHumanoid } from '../world/Humanoid'
+import { loadRunnerModel, type RunnerModel, type RunnerClip } from '../world/RunnerModel'
 import {
   type Side,
   type TileInfo,
@@ -50,9 +52,12 @@ export class Player {
   private slideT = 0
   private runPhase = 0
 
-  private readonly legL: THREE.Mesh
-  private readonly legR: THREE.Mesh
+  private readonly legL: THREE.Group
+  private readonly legR: THREE.Group
+  private readonly armL: THREE.Group
+  private readonly armR: THREE.Group
   private readonly body: THREE.Group
+  private model: RunnerModel | null = null
   private readonly shield: THREE.Mesh
   private protectTimer = 0
   private readonly track: Track
@@ -71,23 +76,34 @@ export class Player {
     this.clock = clock
     this.onCrash = onCrash
     this.onJunctionTurn = onJunctionTurn
-    // Placeholder runner: capsule body + sphere head + two box legs. Green shirt,
-    // white trousers (a nod to the flag), per spec §4.
-    this.body = new THREE.Group()
-    const shirt = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 })
-    const skin = new THREE.MeshStandardMaterial({ color: 0x8d5524, roughness: 0.9 })
-    const trouser = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 })
-
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.6, 4, 8), shirt)
-    torso.position.y = 1.05
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), skin)
-    head.position.y = 1.65
-    this.legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.24), trouser)
-    this.legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.24), trouser)
-    this.legL.position.set(-0.16, 0.4, 0)
-    this.legR.position.set(0.16, 0.4, 0)
-    this.body.add(torso, head, this.legL, this.legR)
+    // Sims-style runner: Super Eagles green jersey, white shorts (flag nod).
+    const human = buildHumanoid({
+      shirt: new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 }),
+      trouser: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 }),
+      skin: new THREE.MeshStandardMaterial({ color: 0x8d5524, roughness: 0.9 }),
+      hair: new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 0.95 }),
+      shoe: new THREE.MeshStandardMaterial({ color: 0x111418, roughness: 0.8 }),
+    })
+    this.body = human.group
+    this.legL = human.legL
+    this.legR = human.legR
+    this.armL = human.armL
+    this.armR = human.armR
     this.group.add(this.body)
+
+    // Swap the procedural figure for the rigged GLB runner once it loads.
+    loadRunnerModel('/models/naija-runner.glb')
+      .then((m) => {
+        this.model = m
+        m.root.rotation.y = 0 // face the direction of travel (−z)
+        m.root.scale.setScalar(1.15)
+        this.group.add(m.root)
+        this.body.visible = false
+        m.play('run')
+      })
+      .catch(() => {
+        /* keep the procedural humanoid */
+      })
 
     // Protection shield ring (hidden unless protected).
     this.shield = new THREE.Mesh(
@@ -124,6 +140,8 @@ export class Player {
     this.body.rotation.set(0, 0, 0)
     this.legL.rotation.set(0, 0, 0)
     this.legR.rotation.set(0, 0, 0)
+    this.armL.rotation.set(0, 0, 0)
+    this.armR.rotation.set(0, 0, 0)
     this.group.rotation.set(0, 0, 0)
   }
 
@@ -244,6 +262,12 @@ export class Player {
   // --- update ----------------------------------------------------------------
 
   update(dt: number): void {
+    // Drive the rigged model's animation every frame (even once dead, so the
+    // death clip can play out).
+    if (this.model) {
+      this.model.update(dt)
+      this.model.play(this.animClip())
+    }
     if (this.state === 'DEAD') return
     const sdt = dt * this.clock.scale
 
@@ -307,12 +331,8 @@ export class Player {
       if (this.jumpT >= CONFIG.JUMP_TIME) this.state = 'RUN'
     } else if (this.state === 'SLIDE') {
       this.slideT += dt
-      if (this.slideT >= CONFIG.SLIDE_TIME) {
-        this.state = 'RUN'
-        this.body.scale.set(1, 1, 1)
-      } else {
-        this.body.scale.set(1, 0.5, 1)
-      }
+      if (this.slideT >= CONFIG.SLIDE_TIME) this.state = 'RUN'
+      // The low pose itself is applied in updatePose (reclined, not squashed).
     }
   }
 
@@ -351,12 +371,42 @@ export class Player {
     // Face the heading (smoothed so pivots don't snap).
     this.group.rotation.y = lerpAngle(this.group.rotation.y, yawOf(heading), Math.min(1, dt * 12))
 
-    // Leg run-cycle.
-    if (this.state !== 'DEAD') {
+    // The rigged model animates itself; the procedural fallback is posed here.
+    if (this.model) return
+
+    // Recline for the slide (eased); upright otherwise. Pivot is at the feet,
+    // so the body drops low and leans back like a baseball slide.
+    const recline = this.state === 'SLIDE' ? 1.15 : 0
+    this.body.rotation.x += (recline - this.body.rotation.x) * Math.min(1, dt * 14)
+
+    if (this.state === 'SLIDE') {
+      // Fixed slide pose: legs thrust forward, arms swept back.
+      this.legL.rotation.x = -0.6
+      this.legR.rotation.x = -0.95
+      this.armL.rotation.x = 0.7
+      this.armR.rotation.x = 0.5
+    } else if (this.state !== 'DEAD') {
+      // Run cycle: legs swing, arms counter-swing.
       this.runPhase += move * 1.6
       const s = Math.sin(this.runPhase)
-      this.legL.rotation.x = s * 0.6
-      this.legR.rotation.x = -s * 0.6
+      this.legL.rotation.x = s * 0.7
+      this.legR.rotation.x = -s * 0.7
+      this.armL.rotation.x = -s * 0.55
+      this.armR.rotation.x = s * 0.55
+    }
+  }
+
+  /** Map the current player state to a rigged-model animation clip. */
+  private animClip(): RunnerClip {
+    switch (this.state) {
+      case 'JUMP':
+        return 'jump'
+      case 'SLIDE':
+        return 'slide'
+      case 'DEAD':
+        return 'dead'
+      default:
+        return 'run'
     }
   }
 

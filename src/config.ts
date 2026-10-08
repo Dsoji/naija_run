@@ -50,6 +50,8 @@ export const CONFIG = {
   CATCH_DISTANCE: 120, // metres of clean runway to the stuck thief when chase hits 100
   CATCH_REACH: 6, // metres from the thief that counts as CAUGHT
   MARKET_LEN: 7, // tiles in a Nero market shortcut section
+  BRIDGE_EVERY: 38, // straight tiles between Ikoyi Link Bridge crossings (~760m)
+  BRIDGE_LEN: 7, // tiles in a bridge section (pylon sits on the middle one)
   NERO_AHEAD: 8, // metres Nero runs ahead of the player in the market
   CALLOUT_LOOKAHEAD: 16, // metres ahead Nero warns about an obstacle
   CALLOUT_COOLDOWN: 0.6, // seconds between Nero callouts
@@ -87,6 +89,7 @@ export const CONFIG = {
   CAM_HEIGHT: 4.2,
   CAM_LOOK_AHEAD: 8, // metres ahead of the player the camera aims at
   CAM_FOLLOW_LERP: 0.18, // position smoothing
+  CAM_YAW_LERP: 0.28, // seconds to ease the camera's yaw through a turn (smooth curve)
   CAM_FOV: 70, // base field of view
   CAM_FOV_KICK: 10, // extra FOV at top speed (sense of speed)
   SHAKE_STUMBLE: 0.25, // camera shake magnitude on a stumble

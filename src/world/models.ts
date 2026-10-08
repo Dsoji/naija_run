@@ -22,7 +22,15 @@ const M = {
   pole: new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.8 }),
   goatHide: new THREE.MeshStandardMaterial({ color: 0xd9cfc1, roughness: 1 }),
   goatDark: new THREE.MeshStandardMaterial({ color: 0x6b5d4f, roughness: 1 }),
+  okadaFrame: new THREE.MeshStandardMaterial({ color: 0x8a1f1f, roughness: 0.5, metalness: 0.2 }),
+  chrome: new THREE.MeshStandardMaterial({ color: 0xbfc3c8, roughness: 0.35, metalness: 0.6 }),
+  helmet: new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.4 }),
 } as const
+
+// Bright shirt colours for the okada rider (varied per spawn).
+const okadaShirts = [0x2563eb, 0x16a34a, 0xef4444, 0xf59e0b, 0x7c3aed].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }),
+)
 
 /** Flat brown disc lying on the road — a pothole. 2D, faces up. */
 export function buildPothole(): THREE.Object3D {
@@ -95,6 +103,78 @@ export function buildKeke(): THREE.Object3D {
     w.position.set(sx * 0.55, 0.3, -0.7)
     g.add(w)
   }
+  return g
+}
+
+/** Lagos yellow taxi: a small saloon, danfo-yellow with a black door stripe and
+ *  a little roof sign — distinct from the boxier danfo. */
+export function buildTaxi(): THREE.Object3D {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.85, 3.4), M.danfoYellow)
+  body.position.y = 0.72
+  g.add(body)
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.62, 1.7), M.danfoYellow)
+  cabin.position.y = 1.28
+  g.add(cabin)
+  for (const sx of [-1, 1]) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 3.0), M.stripeBlack)
+    stripe.position.set(sx * 0.86, 0.8, 0)
+    g.add(stripe)
+  }
+  for (const sz of [-1, 1]) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.45, 0.05), M.glass)
+    win.position.set(0, 1.28, sz * 0.84)
+    g.add(win)
+  }
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.3), M.stripeBlack)
+  sign.position.set(0, 1.72, 0.2)
+  g.add(sign)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.26, 12), M.tyre)
+      w.rotation.z = Math.PI / 2
+      w.position.set(sx * 0.85, 0.3, sz * 1.1)
+      g.add(w)
+    }
+  }
+  return g
+}
+
+/** Okada (commercial motorbike) with a helmeted rider — a Lagos street staple.
+ *  Length runs along local Z so it parks parallel to the kerb like the cars. */
+export function buildOkada(): THREE.Object3D {
+  const g = new THREE.Group()
+  for (const sz of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.14, 14), M.tyre)
+    w.rotation.z = Math.PI / 2
+    w.position.set(0, 0.34, sz * 0.62)
+    g.add(w)
+  }
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 1.0), M.okadaFrame)
+  frame.position.set(0, 0.62, 0)
+  g.add(frame)
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.72), M.stripeBlack)
+  seat.position.set(0, 0.82, -0.12)
+  g.add(seat)
+  const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6), M.chrome)
+  fork.position.set(0, 0.7, 0.58)
+  fork.rotation.x = -0.35
+  g.add(fork)
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.05), M.chrome)
+  bar.position.set(0, 1.0, 0.66)
+  g.add(bar)
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.08), M.glass)
+  lamp.position.set(0, 0.78, 0.78)
+  g.add(lamp)
+  // Rider: leaning torso + helmet.
+  const shirt = okadaShirts[(Math.random() * okadaShirts.length) | 0]
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.32), shirt)
+  torso.position.set(0, 1.15, -0.1)
+  torso.rotation.x = 0.25
+  g.add(torso)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.26), M.helmet)
+  head.position.set(0, 1.55, 0.02)
+  g.add(head)
   return g
 }
 

@@ -109,18 +109,19 @@ export class Game {
 
     const sky = new THREE.Color(0x8fd0ff)
     this.scene.background = sky
-    this.scene.fog = new THREE.Fog(sky.getHex(), 35, 135) // hides tile pop-in (spec §9)
+    this.scene.fog = new THREE.Fog(sky.getHex(), 38, 150) // hides tile pop-in (spec §9)
 
     this.camera = new THREE.PerspectiveCamera(CONFIG.CAM_FOV, w / h, 0.1, 400)
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.setSize(w, h)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.15
+    this.renderer.toneMappingExposure = 1.2
     hooks.mount.appendChild(this.renderer.domElement)
 
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a44, 1.0))
-    const sun = new THREE.DirectionalLight(0xfff0d0, 1.4)
+    // Warm tropical key light + a slightly warm ground bounce for a sunnier read.
+    this.scene.add(new THREE.HemisphereLight(0xfff4e0, 0x4a4038, 0.95))
+    const sun = new THREE.DirectionalLight(0xffe7bf, 1.55)
     sun.position.set(-4, 8, 2)
     this.scene.add(sun)
 

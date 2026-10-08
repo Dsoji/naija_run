@@ -11,6 +11,7 @@
 import * as THREE from 'three'
 import { CONFIG } from '../config'
 import type { Vec2 } from './Tile'
+import { buildDanfo, buildKeke, buildTaxi, buildOkada } from './models'
 
 const ROAD_HALF = CONFIG.ROAD_W / 2
 const SIDEWALK = CONFIG.SIDEWALK_W
@@ -71,6 +72,18 @@ const matLampHead = new THREE.MeshStandardMaterial({
 })
 const kioskMats = AWNING_COLORS.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }))
 const matBoardBack = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 1 })
+
+// Pedestrian + street-clutter materials (shared, never disposed).
+const skinMats = [0x6b4a2b, 0x7a5230, 0x8a5a34, 0x5a3b22].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }),
+)
+const pedShirts = [0xef4444, 0x2563eb, 0x16a34a, 0xf59e0b, 0xdb2777, 0x0891b2, 0xffffff, 0x7c3aed].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }),
+)
+const matHair = new THREE.MeshStandardMaterial({ color: 0x15110d, roughness: 1 })
+const matTrousers = new THREE.MeshStandardMaterial({ color: 0x33373d, roughness: 1 })
+const matTyre = new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 1 })
+const matGen = new THREE.MeshStandardMaterial({ color: 0xb0472a, roughness: 1 }) // rusty gen-set
 
 // Big-brand billboard ads (bright backing + bold text), a Lagos-highway staple.
 const ADS: Array<{ bg: number; fg: string; name: string; tag: string }> = [
@@ -198,7 +211,44 @@ function bakeAd(ad: { bg: number; fg: string; name: string; tag: string }): THRE
 }
 const adMats = ADS.map((a) => new THREE.MeshStandardMaterial({ map: bakeAd(a), roughness: 1 }))
 
+/** Bake the small roadside "BUS STOP" sign once. */
+function bakeBusStopSign(): THREE.CanvasTexture {
+  const W = 256
+  const H = 112
+  const cv = document.createElement('canvas')
+  cv.width = W
+  cv.height = H
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = '#0b4f9c'
+  ctx.fillRect(0, 0, W, H)
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 6
+  ctx.strokeRect(6, 6, W - 12, H - 12)
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 40px Arial, sans-serif'
+  ctx.fillText('BUS STOP', W / 2, H / 2, W - 24)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
+}
+const matBusStopSign = new THREE.MeshStandardMaterial({
+  map: bakeBusStopSign(),
+  roughness: 1,
+  side: THREE.DoubleSide,
+})
+
 const pick = <T>(a: T[]): T => a[(Math.random() * a.length) | 0]
+
+// Parked-vehicle pool (okada weighted a little higher — they're everywhere).
+const VEHICLES = [buildDanfo, buildKeke, buildTaxi, buildOkada, buildOkada]
+
+/** Yaw so a vehicle's local +Z (its length) aligns with the road heading. */
+function vehicleYaw(dir: Vec2, reverse: boolean): number {
+  return Math.atan2(dir.x, dir.z) + (reverse ? Math.PI : 0)
+}
 
 /** Build one building on `side` (-1 left / +1 right of travel) of the tile. */
 function addBuilding(g: THREE.Group, dir: Vec2, r: Vec2, side: number): void {
@@ -592,15 +642,120 @@ export function addMarketScenery(g: THREE.Group, dir: Vec2): void {
   }
 }
 
+/** A vehicle parked along the kerb (visual only, kept off the lanes). Lagos
+ *  streets are lined with danfos, taxis, keke and okada at rest. */
+function addParkedVehicle(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: number): void {
+  const lat = ROAD_HALF + 1.25 + Math.random() * 0.4 // inner edge clears the road
+  const v = pick(VEHICLES)()
+  v.position.set(r.x * side * lat + dir.x * along, 0, r.z * side * lat + dir.z * along)
+  v.rotation.y = vehicleYaw(dir, Math.random() < 0.5)
+  g.add(v)
+}
+
+/** A simple standing figure on the sidewalk; ~1 in 3 is a hawker balancing a
+ *  tray on the head. Cheap box build (not the rigged Humanoid) — it's set
+ *  dressing seen at speed, so a handful of boxes reads fine. */
+function addPedestrian(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: number): void {
+  const lat = ROAD_HALF + 0.5 + Math.random() * 0.8 // on the sidewalk
+  const x = r.x * side * lat + dir.x * along
+  const z = r.z * side * lat + dir.z * along
+
+  const legs = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.22), matTrousers)
+  legs.position.set(x, 0.25, z)
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.24), pick(pedShirts))
+  torso.position.set(x, 0.72, z)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.22, 0.2), pick(skinMats))
+  head.position.set(x, 1.05, z)
+  const hair = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.09, 0.22), matHair)
+  hair.position.set(x, 1.17, z)
+  g.add(legs, torso, head, hair)
+
+  if (Math.random() < 0.35) {
+    // Hawker's tray/basin balanced on the head, with a couple of goods.
+    const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.26, 0.16, 10), matBasket)
+    tray.position.set(x, 1.32, z)
+    g.add(tray)
+    for (let i = 0; i < 2; i++) {
+      const gd = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.16), pick(goodsMats))
+      gd.position.set(x + (Math.random() - 0.5) * 0.3, 1.46, z + (Math.random() - 0.5) * 0.3)
+      g.add(gd)
+    }
+  }
+}
+
+/** A roadside bus stop: two posts, a zinc roof, a bench and a sign to the road. */
+function addBusStop(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: number): void {
+  const lat = ROAD_HALF + SIDEWALK + 0.6
+  const cx = r.x * side * lat + dir.x * along
+  const cz = r.z * side * lat + dir.z * along
+
+  for (const s of [-1, 1]) {
+    const px = cx + dir.x * s * 1.3
+    const pz = cz + dir.z * s * 1.3
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.1), matPole)
+    post.position.set(px, 1.1, pz)
+    g.add(post)
+  }
+  const roofGeo =
+    dir.x === 0 ? new THREE.BoxGeometry(1.4, 0.1, 3.0) : new THREE.BoxGeometry(3.0, 0.1, 1.4)
+  const roof = new THREE.Mesh(roofGeo, matZinc)
+  roof.position.set(cx, 2.2, cz)
+  g.add(roof)
+
+  const benchGeo =
+    dir.x === 0 ? new THREE.BoxGeometry(0.4, 0.12, 2.4) : new THREE.BoxGeometry(2.4, 0.12, 0.4)
+  const bench = new THREE.Mesh(benchGeo, matWood)
+  bench.position.set(cx + r.x * side * 0.2, 0.5, cz + r.z * side * 0.2)
+  g.add(bench)
+
+  const n = { x: -r.x * side, z: -r.z * side } // toward the road
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), matBusStopSign)
+  sign.rotation.y = Math.atan2(n.x, n.z)
+  sign.position.set(cx + n.x * 0.1, 1.75, cz + n.z * 0.1)
+  g.add(sign)
+}
+
+/** Small street clutter near the kerb: a stack of tyres or a rusty gen-set. */
+function addClutter(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: number): void {
+  const lat = ROAD_HALF + 0.7
+  const x = r.x * side * lat + dir.x * along
+  const z = r.z * side * lat + dir.z * along
+  if (Math.random() < 0.6) {
+    for (let i = 0; i < 3; i++) {
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.16, 12), matTyre)
+      tyre.position.set(x, 0.1 + i * 0.17, z)
+      g.add(tyre)
+    }
+  } else {
+    const gen = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.5), matGen)
+    gen.position.set(x, 0.25, z)
+    g.add(gen)
+  }
+}
+
 /** Populate a STRAIGHT tile group with Lagos roadside scenery. */
 export function addStreetScenery(g: THREE.Group, dir: Vec2): void {
   const r = { x: -dir.z, z: dir.x } // rightOf(dir)
 
-  // Dusty verge + a building on each side (continuous street wall).
+  // Dusty verge + a building on each side (continuous street wall), plus kerbside
+  // life: parked vehicles and bits of clutter.
   for (const side of [-1, 1]) {
     addVerge(g, dir, r, side)
     addBuilding(g, dir, r, side)
     if (Math.random() < 0.3) addKiosk(g, dir, r, side, (Math.random() - 0.5) * 12)
+    if (Math.random() < 0.32) addParkedVehicle(g, dir, r, side, (Math.random() - 0.5) * 14)
+    if (Math.random() < 0.15) addClutter(g, dir, r, side, (Math.random() - 0.5) * 14)
+  }
+
+  // Pedestrians / hawkers on the sidewalks (up to two per tile).
+  for (const side of [-1, 1]) {
+    if (Math.random() < 0.5) addPedestrian(g, dir, r, side, (Math.random() - 0.5) * 16)
+  }
+
+  // Occasional bus stop on one side.
+  if (Math.random() < 0.08) {
+    const side = Math.random() < 0.5 ? -1 : 1
+    addBusStop(g, dir, r, side, (Math.random() - 0.5) * 8)
   }
 
   // Utility poles (each side independently) + a wire across the road if both.

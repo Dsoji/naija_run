@@ -5,6 +5,7 @@
 // leak new materials.
 
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { blobShadow } from './Shadow'
 
 export interface HumanoidMats {
@@ -31,33 +32,40 @@ const PLUMBOB_MAT = new THREE.MeshStandardMaterial({
   roughness: 0.3,
 })
 
-function box(w: number, h: number, d: number, mat: THREE.Material): THREE.Mesh {
-  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+/** A rounded limb segment (capsule) of the given radius and straight length. */
+function limb(radius: number, len: number, mat: THREE.Material): THREE.Mesh {
+  return new THREE.Mesh(new THREE.CapsuleGeometry(radius, len, 4, 10), mat)
 }
 
-/** One leg hanging from a hip pivot (built downward in local space). */
+/** One leg hanging from a hip pivot (built downward in local space). Rounded
+ *  thigh + calf taper like a real leg, with a slightly wedge-shaped shoe. */
 function buildLeg(m: HumanoidMats): THREE.Group {
   const leg = new THREE.Group()
-  const thigh = box(0.22, 0.4, 0.26, m.trouser)
-  thigh.position.y = -0.2
-  const shin = box(0.18, 0.4, 0.22, m.trouser)
-  shin.position.y = -0.6
-  const shoe = box(0.22, 0.13, 0.42, m.shoe)
-  shoe.position.set(0, -0.86, -0.06) // toe points forward (−z)
-  leg.add(thigh, shin, shoe)
+  const thigh = limb(0.115, 0.26, m.trouser)
+  thigh.position.y = -0.22
+  const knee = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), m.trouser)
+  knee.position.y = -0.44
+  const calf = limb(0.095, 0.26, m.skin)
+  calf.position.y = -0.64
+  const shoe = new THREE.Mesh(new RoundedBoxGeometry(0.17, 0.13, 0.4, 2, 0.05), m.shoe)
+  shoe.position.set(0, -0.86, -0.07) // toe points forward (−z)
+  leg.add(thigh, knee, calf, shoe)
   return leg
 }
 
-/** One arm hanging from a shoulder pivot (sleeve → forearm → hand). */
+/** One arm hanging from a shoulder pivot: rounded upper (sleeve) + forearm +
+ *  a small hand, with a shoulder cap so it joins the torso smoothly. */
 function buildArm(m: HumanoidMats): THREE.Group {
   const arm = new THREE.Group()
-  const sleeve = box(0.15, 0.2, 0.17, m.shirt)
-  sleeve.position.y = -0.1
-  const fore = box(0.13, 0.3, 0.15, m.skin)
-  fore.position.y = -0.35
-  const hand = box(0.14, 0.14, 0.13, m.skin)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), m.shirt)
+  const upper = limb(0.085, 0.18, m.shirt)
+  upper.position.y = -0.13
+  const fore = limb(0.07, 0.2, m.skin)
+  fore.position.y = -0.4
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), m.skin)
+  hand.scale.set(1, 1.2, 0.8)
   hand.position.y = -0.56
-  arm.add(sleeve, fore, hand)
+  arm.add(cap, upper, fore, hand)
   return arm
 }
 
@@ -70,37 +78,50 @@ export function buildHumanoid(m: HumanoidMats, opts: { plumbob?: boolean } = {})
   legL.position.set(-0.13, 0.88, 0)
   legR.position.set(0.13, 0.88, 0)
 
-  // Pelvis + torso.
-  const pelvis = box(0.4, 0.26, 0.28, m.trouser)
-  pelvis.position.y = 0.95
-  const torso = box(0.5, 0.56, 0.3, m.shirt)
-  torso.position.y = 1.3
+  // Hips + torso: rounded, tapered so the waist is narrower than the chest.
+  const pelvis = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.26, 0.26, 3, 0.1), m.trouser)
+  pelvis.position.y = 0.96
+  const waist = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.26, 0.24, 3, 0.1), m.shirt)
+  waist.position.y = 1.18
+  const chest = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.34, 0.26, 3, 0.12), m.shirt)
+  chest.position.y = 1.44
+  // Shoulder yoke across the top of the chest for a human upper-body line.
+  const shoulders = new THREE.Mesh(new RoundedBoxGeometry(0.56, 0.16, 0.26, 3, 0.08), m.shirt)
+  shoulders.position.y = 1.58
 
   // Arms on shoulder pivots.
   const armL = buildArm(m)
   const armR = buildArm(m)
-  armL.position.set(-0.3, 1.5, 0)
-  armR.position.set(0.3, 1.5, 0)
+  armL.position.set(-0.3, 1.56, 0)
+  armR.position.set(0.3, 1.56, 0)
 
   // Neck + head.
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 8), m.skin)
-  neck.position.y = 1.6
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), m.skin)
-  head.scale.y = 1.12
-  head.position.y = 1.78
-  // Hair cap (upper hemisphere), pushed back slightly.
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 10), m.skin)
+  neck.position.y = 1.68
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 14), m.skin)
+  head.scale.set(0.92, 1.1, 0.95) // narrower, taller → a face, not a ball
+  head.position.y = 1.86
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 12), m.skin)
+  jaw.scale.set(0.9, 0.7, 0.95)
+  jaw.position.set(0, 1.78, -0.015)
+  // Hair cap (upper hemisphere) wrapping down a touch at the back.
   const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.235, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(0.212, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6),
     m.hair,
   )
-  hair.position.set(0, 1.82, 0.015)
-  // Eyes (front is −z).
-  const eyeL = box(0.05, 0.07, 0.03, EYE_MAT)
-  const eyeR = box(0.05, 0.07, 0.03, EYE_MAT)
-  eyeL.position.set(-0.08, 1.8, -0.2)
-  eyeR.position.set(0.08, 1.8, -0.2)
+  hair.scale.set(0.95, 1.05, 1)
+  hair.position.set(0, 1.9, 0.01)
+  // Nose + eyes (front is −z).
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), m.skin)
+  nose.position.set(0, 1.85, -0.19)
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), EYE_MAT)
+  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), EYE_MAT)
+  eyeL.position.set(-0.07, 1.9, -0.17)
+  eyeR.position.set(0.07, 1.9, -0.17)
 
-  group.add(legL, legR, pelvis, torso, armL, armR, neck, head, hair, eyeL, eyeR)
+  group.add(
+    legL, legR, pelvis, waist, chest, shoulders, armL, armR, neck, head, jaw, hair, nose, eyeL, eyeR,
+  )
   group.add(blobShadow(0.42, 0.42))
 
   // Sims plumbob floating overhead.

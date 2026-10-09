@@ -664,27 +664,43 @@ function addPedestrian(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: 
   const x = r.x * side * lat + dir.x * along
   const z = r.z * side * lat + dir.z * along
 
-  const shadow = blobShadow(0.3, 0.3)
-  shadow.position.set(x, 0.02, z)
-  g.add(shadow)
-  const legs = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.22), matTrousers)
-  legs.position.set(x, 0.25, z)
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.24), pick(pedShirts))
-  torso.position.set(x, 0.72, z)
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.22, 0.2), pick(skinMats))
-  head.position.set(x, 1.05, z)
-  const hair = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.09, 0.22), matHair)
-  hair.position.set(x, 1.17, z)
-  g.add(legs, torso, head, hair)
+  // Rounded capsule figure in its own group so it can face any direction.
+  const p = new THREE.Group()
+  p.position.set(x, 0, z)
+  p.rotation.y = Math.random() * Math.PI * 2
+
+  const skin = pick(skinMats)
+  const shirt = pick(pedShirts)
+  for (const sx of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.34, 3, 8), matTrousers)
+    leg.position.set(sx * 0.09, 0.3, 0)
+    p.add(leg)
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.3, 3, 8), shirt)
+    arm.position.set(sx * 0.21, 0.92, 0)
+    p.add(arm)
+  }
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.3, 4, 10), shirt)
+  torso.position.y = 0.9
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), skin)
+  head.scale.set(0.95, 1.08, 0.95)
+  head.position.y = 1.36
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.148, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6),
+    matHair,
+  )
+  hair.position.y = 1.39
+  p.add(torso, head, hair)
+  p.add(blobShadow(0.3, 0.3))
+  g.add(p)
 
   if (Math.random() < 0.35) {
     // Hawker's tray/basin balanced on the head, with a couple of goods.
     const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.26, 0.16, 10), matBasket)
-    tray.position.set(x, 1.32, z)
+    tray.position.set(x, 1.58, z)
     g.add(tray)
     for (let i = 0; i < 2; i++) {
       const gd = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.16), pick(goodsMats))
-      gd.position.set(x + (Math.random() - 0.5) * 0.3, 1.46, z + (Math.random() - 0.5) * 0.3)
+      gd.position.set(x + (Math.random() - 0.5) * 0.3, 1.72, z + (Math.random() - 0.5) * 0.3)
       g.add(gd)
     }
   }

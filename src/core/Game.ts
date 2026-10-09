@@ -9,6 +9,7 @@ import { Input, type Action } from './Input'
 import { Sfx } from './Sfx'
 import { cellCenter, rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo, type Vec2 } from '../world/Tile'
 import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
+import { preloadVehicles, policeGLB } from '../world/VehicleModels'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -72,6 +73,9 @@ export class Game {
   private activeEncounter: EncounterInstance | null = null
   private policeAssistTimer = 0
   private policeCar: THREE.Object3D | null = null
+  private policeIsGLB = false
+  private escortYaw = 0
+  private escortYawInit = false
   private neroGuide: THREE.Object3D | null = null
   private neroShown = false
   private neroPhase = 0
@@ -136,6 +140,8 @@ export class Game {
     const fill = new THREE.DirectionalLight(0x9ec8ff, 0.35)
     fill.position.set(5, 4, -3)
     this.scene.add(fill)
+
+    preloadVehicles() // start fetching the GLB vehicles (police / car / okada)
 
     // A large flat ground kept under the player so the world never shows a void.
     this.ground = new THREE.Mesh(
@@ -465,11 +471,19 @@ export class Game {
 
   private startPoliceAssist(seconds: number): void {
     this.policeAssistTimer = seconds
-    if (!this.policeCar) {
-      this.policeCar = buildPoliceCar()
-      this.scene.add(this.policeCar)
+    // Prefer the GLB police car once loaded; if we only have the procedural
+    // fallback and the GLB has since loaded, swap it in.
+    if (!this.policeCar || !this.policeIsGLB) {
+      const glb = policeGLB()
+      if (glb || !this.policeCar) {
+        if (this.policeCar) this.scene.remove(this.policeCar)
+        this.policeCar = glb ?? buildPoliceCar()
+        this.policeIsGLB = glb !== null
+        this.scene.add(this.policeCar)
+      }
     }
     this.policeCar.visible = true
+    this.escortYawInit = false // snap to heading on the first frame of this assist
     this.sfx.play('siren')
     this.hud.toast('POLICE ASSIST!', 'info')
   }
@@ -499,7 +513,18 @@ export class Game {
       // the car doesn't shoot off the map at a junction before turning.
       const e = this.escortPoint(CONFIG.ESCORT_AHEAD)
       this.policeCar.position.set(e.x, 0, e.z)
-      this.policeCar.rotation.set(0, e.yaw, 0)
+      // Ease the heading through the corner along the shortest arc, so the car
+      // banks into the turn instead of snapping 90° at the junction centre.
+      if (!this.escortYawInit) {
+        this.escortYaw = e.yaw
+        this.escortYawInit = true
+      } else {
+        let d = (e.yaw - this.escortYaw) % (Math.PI * 2)
+        if (d > Math.PI) d -= Math.PI * 2
+        if (d < -Math.PI) d += Math.PI * 2
+        this.escortYaw += d * Math.min(1, sdt / CONFIG.CAM_YAW_LERP)
+      }
+      this.policeCar.rotation.set(0, this.escortYaw, 0)
     }
 
     if (this.policeAssistTimer <= 0 && this.policeCar) this.policeCar.visible = false

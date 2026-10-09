@@ -13,6 +13,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { CONFIG } from '../config'
 import type { Vec2 } from './Tile'
 import { buildDanfo, buildKeke, buildTaxi, buildOkada } from './models'
+import { carGLB, okadaGLB } from './VehicleModels'
 import { blobShadow } from './Shadow'
 
 const ROAD_HALF = CONFIG.ROAD_W / 2
@@ -244,8 +245,15 @@ const matBusStopSign = new THREE.MeshStandardMaterial({
 
 const pick = <T>(a: T[]): T => a[(Math.random() * a.length) | 0]
 
-// Parked-vehicle pool (okada weighted a little higher — they're everywhere).
-const VEHICLES = [buildDanfo, buildKeke, buildTaxi, buildOkada, buildOkada]
+// Parked-vehicle pool. GLB car/okada are used once loaded, else the procedural
+// versions; danfo + keke stay procedural (no GLB provided for those).
+const VEHICLES: Array<() => THREE.Object3D> = [
+  () => carGLB() ?? buildTaxi(),
+  () => okadaGLB() ?? buildOkada(),
+  () => okadaGLB() ?? buildOkada(), // okada weighted — they're everywhere
+  buildDanfo,
+  buildKeke,
+]
 
 /** Yaw so a vehicle's local +Z (its length) aligns with the road heading. */
 function vehicleYaw(dir: Vec2, reverse: boolean): number {

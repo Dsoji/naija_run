@@ -216,6 +216,8 @@ export function buildTileMesh(type: TileType, entryDir: Vec2, exitDirs: Vec2[]):
 export function disposeTile(info: TileInfo): void {
   info.group.traverse((o) => {
     const mesh = o as THREE.Mesh
-    if (mesh.isMesh) mesh.geometry.dispose()
+    // Skip meshes that share a preloaded prototype's geometry (cloned GLB
+    // vehicles) — disposing it would blank every other instance.
+    if (mesh.isMesh && !mesh.userData.shared) mesh.geometry.dispose()
   })
 }

@@ -44,7 +44,7 @@ export class Screens {
         <li>Swipe up / ↑ to jump &nbsp;·&nbsp; swipe down / ↓ to slide</li>
         <li>Follow the thief at junctions — miss a turn and you crash</li>
       </ul>
-      <p class="screen-credit" style="animation-delay:3.2s">Runner model by Quaternius (CC BY)</p>`,
+      <p class="screen-credit" style="animation-delay:3.2s">Models by Quaternius (CC BY / CC0) &amp; jeremy (CC BY) · poly.pizza</p>`,
       onStart,
     )
   }

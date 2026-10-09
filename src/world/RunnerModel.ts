@@ -5,6 +5,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { blobShadow } from './Shadow'
 
 export type RunnerClip = 'run' | 'jump' | 'slide' | 'dead' | 'idle'
 
@@ -44,6 +45,7 @@ export function loadRunnerModel(url: string): Promise<RunnerModel> {
 
         const root = new THREE.Group()
         root.add(model)
+        root.add(blobShadow(0.5, 0.5))
 
         const mixer = new THREE.AnimationMixer(model)
         const actions: Partial<Record<RunnerClip, THREE.AnimationAction>> = {}

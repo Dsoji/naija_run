@@ -5,8 +5,10 @@
 // disposed). 2D pieces are flat, lit, fog-respecting planes (not raw Sprites).
 
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { CONFIG } from '../config'
 import { buildHumanoid } from './Humanoid'
+import { blobShadow } from './Shadow'
 
 // --- shared materials -------------------------------------------------------
 const M = {
@@ -44,11 +46,12 @@ export function buildPothole(): THREE.Object3D {
  *  Built facing −Z (length along Z); the caller orients it to the lane. */
 export function buildDanfo(): THREE.Object3D {
   const g = new THREE.Group()
+  g.add(blobShadow(1.25, 2.1))
   const bodyW = 1.8
   const bodyH = 1.6
   const bodyL = 3.6
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW, bodyH, bodyL), M.danfoYellow)
+  const body = new THREE.Mesh(new RoundedBoxGeometry(bodyW, bodyH, bodyL, 2, 0.16), M.danfoYellow)
   body.position.y = 1.0
   g.add(body)
 
@@ -81,7 +84,8 @@ export function buildDanfo(): THREE.Object3D {
 /** Keke napep: small green tricycle box with a yellow roof. */
 export function buildKeke(): THREE.Object3D {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 1.8), M.kekeGreen)
+  g.add(blobShadow(0.95, 1.2))
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.3, 1.1, 1.8, 2, 0.14), M.kekeGreen)
   body.position.y = 0.75
   g.add(body)
   const roof = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.25, 1.85), M.danfoYellow)
@@ -110,10 +114,11 @@ export function buildKeke(): THREE.Object3D {
  *  a little roof sign — distinct from the boxier danfo. */
 export function buildTaxi(): THREE.Object3D {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.85, 3.4), M.danfoYellow)
+  g.add(blobShadow(1.25, 2.1))
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.7, 0.85, 3.4, 2, 0.16), M.danfoYellow)
   body.position.y = 0.72
   g.add(body)
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.62, 1.7), M.danfoYellow)
+  const cabin = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.62, 1.7, 2, 0.14), M.danfoYellow)
   cabin.position.y = 1.28
   g.add(cabin)
   for (const sx of [-1, 1]) {
@@ -144,6 +149,7 @@ export function buildTaxi(): THREE.Object3D {
  *  Length runs along local Z so it parks parallel to the kerb like the cars. */
 export function buildOkada(): THREE.Object3D {
   const g = new THREE.Group()
+  g.add(blobShadow(0.5, 1.0))
   for (const sz of [-1, 1]) {
     const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.14, 14), M.tyre)
     w.rotation.z = Math.PI / 2
@@ -218,6 +224,7 @@ export function buildBanner(roadWidth: number): THREE.Object3D {
  *  horns, drooping ears, a short tail, slender legs, and a pied dark patch. */
 export function buildGoat(): THREE.Object3D {
   const g = new THREE.Group()
+  g.add(blobShadow(0.55, 0.85))
 
   // Rounded body lying along X.
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.5, 4, 8), M.goatHide)
@@ -324,13 +331,14 @@ export function buildClue(): THREE.Object3D {
 /** The thief's car: a red sedan with wheels and glowing tail lights. */
 export function buildThief(): THREE.Object3D {
   const g = new THREE.Group()
-  const red = new THREE.MeshStandardMaterial({ color: 0xc0271d, roughness: 0.5, metalness: 0.2 })
+  const red = new THREE.MeshStandardMaterial({ color: 0xc0271d, roughness: 0.4, metalness: 0.3 })
   const tail = new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff3b30, emissiveIntensity: 0.8 })
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 3.4), red)
+  g.add(blobShadow(1.25, 2.1))
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.7, 0.9, 3.4, 2, 0.16), red)
   body.position.y = 0.75
   g.add(body)
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.8), red)
+  const cabin = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.7, 1.8, 2, 0.14), red)
   cabin.position.y = 1.35
   g.add(cabin)
   for (const sz of [-1, 1]) {
@@ -434,11 +442,12 @@ export function buildArrow(): THREE.Object3D {
 /** Police escort car: white body, blue stripe, flashing red/blue light bar. */
 export function buildPoliceCar(): THREE.Object3D {
   const g = new THREE.Group()
-  const white = new THREE.MeshStandardMaterial({ color: 0xeef2f6, roughness: 0.5 })
-  const blue = new THREE.MeshStandardMaterial({ color: 0x1b4fd0, roughness: 0.6 })
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 3.4), white)
+  const white = new THREE.MeshStandardMaterial({ color: 0xeef2f6, roughness: 0.4, metalness: 0.2 })
+  const blue = new THREE.MeshStandardMaterial({ color: 0x1b4fd0, roughness: 0.5 })
+  g.add(blobShadow(1.25, 2.1))
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.7, 0.9, 3.4, 2, 0.16), white)
   body.position.y = 0.75
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.7), white)
+  const cabin = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.7, 1.7, 2, 0.14), white)
   cabin.position.y = 1.35
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.3, 3.42), blue)
   stripe.position.y = 0.7

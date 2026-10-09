@@ -5,6 +5,7 @@
 // leak new materials.
 
 import * as THREE from 'three'
+import { blobShadow } from './Shadow'
 
 export interface HumanoidMats {
   shirt: THREE.Material
@@ -100,6 +101,7 @@ export function buildHumanoid(m: HumanoidMats, opts: { plumbob?: boolean } = {})
   eyeR.position.set(0.08, 1.8, -0.2)
 
   group.add(legL, legR, pelvis, torso, armL, armR, neck, head, hair, eyeL, eyeR)
+  group.add(blobShadow(0.42, 0.42))
 
   // Sims plumbob floating overhead.
   if (opts.plumbob) {

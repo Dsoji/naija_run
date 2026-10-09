@@ -2,6 +2,7 @@
 // Phase 1: INTRO → RUNNING → GAMEOVER with track, player, camera and input.
 
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { CONFIG } from '../config'
 import { Clock } from './Clock'
 import { Input, type Action } from './Input'
@@ -119,11 +120,22 @@ export class Game {
     this.renderer.toneMappingExposure = 1.2
     hooks.mount.appendChild(this.renderer.domElement)
 
-    // Warm tropical key light + a slightly warm ground bounce for a sunnier read.
-    this.scene.add(new THREE.HemisphereLight(0xfff4e0, 0x4a4038, 0.95))
-    const sun = new THREE.DirectionalLight(0xffe7bf, 1.55)
+    // Image-based lighting: a PMREM-filtered room gives every surface graded
+    // ambient + subtle reflections, so flat box faces read as solid forms (not
+    // uniformly-lit blocks) and glass/chrome/paint actually catch light.
+    const pmrem = new THREE.PMREMGenerator(this.renderer)
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    pmrem.dispose()
+
+    // Low ambient (the env map carries the fill) + a strong warm key for clear
+    // light/shadow contrast across faces, plus a cool sky fill on the dark side.
+    this.scene.add(new THREE.HemisphereLight(0xfff4e0, 0x4a4038, 0.4))
+    const sun = new THREE.DirectionalLight(0xffe7bf, 1.7)
     sun.position.set(-4, 8, 2)
     this.scene.add(sun)
+    const fill = new THREE.DirectionalLight(0x9ec8ff, 0.35)
+    fill.position.set(5, 4, -3)
+    this.scene.add(fill)
 
     // A large flat ground kept under the player so the world never shows a void.
     this.ground = new THREE.Mesh(

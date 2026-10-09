@@ -9,9 +9,11 @@
 // matter how many buildings stream past; only the per-building geometry churns.
 
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { CONFIG } from '../config'
 import type { Vec2 } from './Tile'
 import { buildDanfo, buildKeke, buildTaxi, buildOkada } from './models'
+import { blobShadow } from './Shadow'
 
 const ROAD_HALF = CONFIG.ROAD_W / 2
 const SIDEWALK = CONFIG.SIDEWALK_W
@@ -259,11 +261,13 @@ function addBuilding(g: THREE.Group, dir: Vec2, r: Vec2, side: number): void {
   const alongC = (Math.random() - 0.5) * 1.5
   const centerDist = FACADE_DIST + depth / 2
 
-  // Mass box (dims depend on heading axis).
+  // Mass box with softly chamfered edges (dims depend on heading axis) — the
+  // rounded verticals catch the key light so buildings read as concrete masses
+  // rather than flat cubes.
   const boxGeo =
     dir.x === 0
-      ? new THREE.BoxGeometry(depth, h, alongW)
-      : new THREE.BoxGeometry(alongW, h, depth)
+      ? new RoundedBoxGeometry(depth, h, alongW, 2, 0.3)
+      : new RoundedBoxGeometry(alongW, h, depth, 2, 0.3)
   const box = new THREE.Mesh(boxGeo, wallMats[idx])
   box.position.set(
     r.x * side * centerDist + dir.x * alongC,
@@ -660,6 +664,9 @@ function addPedestrian(g: THREE.Group, dir: Vec2, r: Vec2, side: number, along: 
   const x = r.x * side * lat + dir.x * along
   const z = r.z * side * lat + dir.z * along
 
+  const shadow = blobShadow(0.3, 0.3)
+  shadow.position.set(x, 0.02, z)
+  g.add(shadow)
   const legs = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.22), matTrousers)
   legs.position.set(x, 0.25, z)
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.24), pick(pedShirts))

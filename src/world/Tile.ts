@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { CONFIG } from '../config'
 import type { EncounterDef } from '../encounters/types'
 import { addStreetScenery, addBridgeDecor, addMarketScenery } from './Scenery'
+import { addStraightRoad, addJunctionRoad } from './RoadSurface'
 
 export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY' | 'BRIDGE'
 export type Side = 'L' | 'R'
@@ -124,85 +125,28 @@ export interface TileInfo {
   encounter?: EncounterInstance
 }
 
-// --- Shared materials (constant count; never disposed) ----------------------
-const matAsphalt = new THREE.MeshStandardMaterial({ color: 0x2b2b2e, roughness: 1 })
-const matLine = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1 })
-const matCurb = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 1 })
-
-const HALF = CONFIG.TILE_LEN / 2
-const ROAD_HALF = CONFIG.ROAD_W / 2
-
-/** A flat road quad lying in XZ, length `lenAlong` along `dir`, centred at `fromCenter*dir`. */
-function roadArm(dir: Vec2, fromDist: number, toDist: number): THREE.Mesh {
-  const lenAlong = toDist - fromDist
-  const mid = (fromDist + toDist) / 2
-  const geo =
-    dir.x === 0
-      ? new THREE.PlaneGeometry(CONFIG.ROAD_W, lenAlong)
-      : new THREE.PlaneGeometry(lenAlong, CONFIG.ROAD_W)
-  const m = new THREE.Mesh(geo, matAsphalt)
-  m.rotation.x = -Math.PI / 2
-  m.position.set(dir.x * mid, 0, dir.z * mid)
-  return m
-}
-
-/** Thin bright lane divider running the length of a straight along `dir`. */
-function laneLine(dir: Vec2, offset: number): THREE.Mesh {
-  const r = rightOf(dir)
-  const geo =
-    dir.x === 0
-      ? new THREE.PlaneGeometry(CONFIG.LANE_LINE_W, CONFIG.TILE_LEN * 0.9)
-      : new THREE.PlaneGeometry(CONFIG.TILE_LEN * 0.9, CONFIG.LANE_LINE_W)
-  const m = new THREE.Mesh(geo, matLine)
-  m.rotation.x = -Math.PI / 2
-  m.position.set(r.x * offset, 0.02, r.z * offset)
-  return m
-}
-
-/** Raised curb box along one side of a straight road. */
-function curb(dir: Vec2, sideSign: number): THREE.Mesh {
-  const r = rightOf(dir)
-  const off = ROAD_HALF + CONFIG.SIDEWALK_W / 2
-  const geo =
-    dir.x === 0
-      ? new THREE.BoxGeometry(CONFIG.SIDEWALK_W, 0.25, CONFIG.TILE_LEN)
-      : new THREE.BoxGeometry(CONFIG.TILE_LEN, 0.25, CONFIG.SIDEWALK_W)
-  const m = new THREE.Mesh(geo, matCurb)
-  m.position.set(r.x * off * sideSign, 0.12, r.z * off * sideSign)
-  return m
-}
-
-/** Build the road mesh for a tile. `dirsOpen` lists directions with road arms. */
+/** Build the road for a tile. `dirsOpen` lists directions with road arms.
+ *  Surfaces (asphalt, markings, decals, kerbs) come from RoadSurface. */
 function buildRoad(type: TileType, entryDir: Vec2, dirsOpen: Vec2[]): THREE.Group {
   const g = new THREE.Group()
 
   if (type === 'STRAIGHT' || type === 'MARKET_ENTRY') {
-    // One clean rectangle, no seams.
-    g.add(roadArm(entryDir, -HALF, HALF))
-    g.add(laneLine(entryDir, CONFIG.LANE_W / 2))
-    g.add(laneLine(entryDir, -CONFIG.LANE_W / 2))
-    g.add(curb(entryDir, 1))
-    g.add(curb(entryDir, -1))
+    addStraightRoad(g, entryDir, type === 'MARKET_ENTRY' ? 'market' : 'street')
     if (type === 'MARKET_ENTRY') addMarketScenery(g, entryDir)
     else addStreetScenery(g, entryDir) // Lagos roadside buildings/poles/billboards
     return g
   }
 
   if (type === 'BRIDGE') {
-    // Bridge deck: clean road + lane lines, railings and water instead of curbs
-    // and buildings. The pylon (middle tile only) is attached by the Track.
-    g.add(roadArm(entryDir, -HALF, HALF))
-    g.add(laneLine(entryDir, CONFIG.LANE_W / 2))
-    g.add(laneLine(entryDir, -CONFIG.LANE_W / 2))
+    // Bridge deck: road + markings, railings and water instead of kerbs and
+    // buildings. The pylon (middle tile only) is attached by the Track.
+    addStraightRoad(g, entryDir, 'bridge')
     addBridgeDecor(g, entryDir)
     return g
   }
 
   // Turn / junction: centre square + an arm toward each open edge.
-  const centre = new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.ROAD_W, CONFIG.ROAD_W), matAsphalt)
-  centre.rotation.x = -Math.PI / 2
-  g.add(centre)
-  for (const d of dirsOpen) g.add(roadArm(d, ROAD_HALF, HALF))
+  addJunctionRoad(g, dirsOpen)
   return g
 }
 

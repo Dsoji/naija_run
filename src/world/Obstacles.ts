@@ -38,6 +38,9 @@ const PER_LANE: Record<string, KindDef> = {
 }
 const PER_LANE_IDS = Object.keys(PER_LANE)
 
+// Speed bump ("road pump") across the whole road: jump it or stumble (no ₦ lost).
+const BUMP: KindDef = { model: 'bump', action: 'JUMP', halfAlong: 0.5, halfLateral: CONFIG.ROAD_W / 2, clearHeight: 0.3, onHit: 'stumble', penalty: 0 }
+const BUMP_PAIR_GAP = 2.6 // Lagos loves a double bump; one jump clears both at speed
 const BANNER: KindDef = { model: 'banner', action: 'SLIDE', halfAlong: 0.3, halfLateral: CONFIG.ROAD_W / 2, clearHeight: 0, onHit: 'crash', penalty: 0 }
 const GOAT: KindDef = { model: 'goat', action: 'JUMP', halfAlong: 0.6, halfLateral: 0.7, clearHeight: 0.8, onHit: 'crash', penalty: 0, sideSwipe: true }
 
@@ -104,7 +107,11 @@ export class Obstacles {
     } else if (roll < 0.26) {
       // A full-width slide gate (banner), on its own.
       this.add(info, BANNER, along, 0)
-    } else if (roll < 0.4) {
+    } else if (roll < 0.36) {
+      // Speed bump(s) across the road, on their own.
+      this.add(info, BUMP, along, 0)
+      if (Math.random() < 0.35 && along + BUMP_PAIR_GAP <= 12.5) this.add(info, BUMP, along + BUMP_PAIR_GAP, 0)
+    } else if (roll < 0.48) {
       // Oncoming vehicle: starts at the far end of the tile, closes on the player.
       const lane = LANES[Math.floor(Math.random() * 3)]
       const kind = ONCOMING[Math.floor(Math.random() * ONCOMING.length)]

@@ -6,13 +6,14 @@
 
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CONFIG } from '../config'
 import { buildHumanoid } from './Humanoid'
 import { blobShadow } from './Shadow'
+import { BUMP_STRIPE_M, DECAL, matDecal, matSpeedBump, planeToCell } from './RoadSurface'
 
 // --- shared materials -------------------------------------------------------
 const M = {
-  potholeBrown: new THREE.MeshStandardMaterial({ color: 0x5c3d24, roughness: 1 }),
   danfoYellow: new THREE.MeshStandardMaterial({ color: 0xf5c400, roughness: 0.7 }),
   stripeBlack: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.3, metalness: 0.2 }),
@@ -34,12 +35,45 @@ const okadaShirts = [0x2563eb, 0x16a34a, 0xef4444, 0xf59e0b, 0x7c3aed].map(
   (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }),
 )
 
-/** Flat brown disc lying on the road — a pothole. 2D, faces up. */
+/** A pothole decal lying on the road: broken rim, deep muddy hole. 2D, faces up.
+ *  Slightly larger than the 0.9 m collider so the broken rim reads around it. */
 export function buildPothole(): THREE.Object3D {
-  const m = new THREE.Mesh(new THREE.CircleGeometry(0.9, 20), M.potholeBrown)
+  const m = new THREE.Mesh(planeToCell(new THREE.PlaneGeometry(2.2, 2.2), DECAL.POTHOLE), matDecal)
+  m.renderOrder = 3
   m.rotation.x = -Math.PI / 2
   m.position.y = 0.03
   return m
+}
+
+/** Speed bump ("road pump"): a rounded concrete hump across the whole road,
+ *  painted in worn yellow/black blocks. Built facing −Z (along = Z, across = X). */
+export function buildSpeedBump(): THREE.Object3D {
+  const DEPTH = 1.0 // along the road
+  const H = 0.2
+  const STEPS = 12
+  const shape = new THREE.Shape()
+  shape.moveTo(-DEPTH / 2, 0)
+  for (let i = 1; i < STEPS; i++) {
+    const x = -DEPTH / 2 + (i / STEPS) * DEPTH
+    shape.lineTo(x, H * Math.cos((x / DEPTH) * Math.PI) ** 0.8)
+  }
+  shape.lineTo(DEPTH / 2, 0)
+  shape.closePath()
+  const width = CONFIG.ROAD_W - 0.1
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false })
+  geo.rotateY(Math.PI / 2) // profile x → along (z), extrusion → across (x)
+  geo.translate(-width / 2, 0, 0)
+  // Stripes run across the road; v follows the hump front-to-back.
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const uv = geo.attributes.uv as THREE.BufferAttribute
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, pos.getX(i) / BUMP_STRIPE_M, pos.getZ(i) / DEPTH + 0.5)
+  }
+  // Weld the extruded strips so the crest shades smooth, not faceted.
+  const smooth = mergeVertices(geo.deleteAttribute('normal'))
+  smooth.computeVertexNormals()
+  geo.dispose()
+  return new THREE.Mesh(smooth, matSpeedBump)
 }
 
 /** Low-poly danfo: yellow body with black stripes, windows and wheels.
@@ -496,6 +530,7 @@ export type ModelKind =
   | 'banner'
   | 'goat'
   | 'stall'
+  | 'bump'
 
 export const MODELS: Record<ModelKind, () => THREE.Object3D> = {
   pothole: buildPothole,
@@ -505,4 +540,5 @@ export const MODELS: Record<ModelKind, () => THREE.Object3D> = {
   banner: () => buildBanner(CONFIG.ROAD_W),
   goat: buildGoat,
   stall: buildStall,
+  bump: buildSpeedBump,
 }

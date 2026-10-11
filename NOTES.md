@@ -285,6 +285,41 @@ Goal: stronger Lagos/Nigeria vibe across assets.
 - `Game` toasts "🌉 Ikoyi Link Bridge" once on entry (watches `curTile.bridge`).
 - Verified by temporarily setting BRIDGE_EVERY=2 and screenshotting, then reverting.
 
+### Road pass — textured surface (2026-10-11)
+- From the Danfo Run case study (`docs/CASE_STUDY_DANFO_RUN.md`): detail in
+  textures, not polygons. Their art is proprietary (terms §7), so everything
+  here is painted procedurally on canvases at module load — no asset files.
+- `src/world/RoadSurface.ts` owns all road surfaces; `Tile.buildRoad` calls
+  `addStraightRoad(g, dir, 'street'|'market'|'bridge')` / `addJunctionRoad`.
+  - Asphalt: one tiling gritty map (+ bumpMap), UVs in tile-local metres
+    (4 m repeat divides TILE_LEN, so tiles never seam).
+  - Markings: dashed white lanes (3 m on / 2 m off) + solid yellow edge lines,
+    one alpha-tested strip texture. Junction arms get edge lines + a worn zebra.
+  - Grime: oil drips down each lane + sand drifted against the kerb.
+  - Decals: one 4×4 atlas (oil ×2, tar patch, cracks, manhole, drain, skid,
+    sachet-water litter, pothole, zebra bar, dust), merged into ONE mesh per
+    tile. Markets get more litter; bridges skip kerb-side decals.
+  - Kerb: black/white painted stones (1 m each) + interlocking-paver slab,
+    same footprint/height as the old flat curb so props still sit on it.
+- Potholes everywhere, but readable (owner: "we do need potholes"): OPEN
+  potholes, muddy puddles and crumbling edge bites are scattered only in the
+  edge strip (painted parts ≥ 2.8 m from centre; the runner reaches 2.65 m) and
+  in junction-box corners. Inside lanes only flush tar-and-gravel PATCHED
+  potholes appear. So an open hole in a lane always = the real obstacle. `models.buildPothole` now uses
+  the atlas pothole cell (2.2 m decal over the unchanged 0.9 m collider).
+- Per straight tile: ~7 meshes (was 5). Shared materials/textures, never disposed.
+
+### Speed bumps ("road pumps") — DONE (2026-10-11)
+- New full-width obstacle `BUMP` (Obstacles.ts): action JUMP, clearHeight 0.3,
+  onHit **stumble** (slow-down, no ₦ penalty) — same family as potholes, not a
+  crash. ~10% of obstacle rolls (bracket 0.26–0.36; oncoming shrank to 0.36–0.48,
+  lane rows 0.48+). 35% come as a Lagos double bump 2.6 m apart: one well-timed
+  jump (~6 m above 0.3 m at base speed) clears both, or jump twice.
+- Visual `models.buildSpeedBump`: extruded rounded hump (1.0 m deep, 0.2 m high)
+  across ROAD_W, worn yellow/black block paint (`RoadSurface.matSpeedBump`,
+  procedural), vertices welded so the crest shades smooth.
+- Verified live: unjumped → both bumps stumble, runner keeps RUN; jump clears.
+
 ### Rigged GLB runner — DONE (2026-10-07)
 - Owner wanted FIFA/footballer-style characters. Full realism clashes with the
   low-poly world + is too heavy for web, so we went stylized-but-rigged.

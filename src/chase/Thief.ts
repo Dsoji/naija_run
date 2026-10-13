@@ -43,7 +43,7 @@ export class Thief {
       this.scene.remove(t)
       t.traverse((o) => {
         const m = o as THREE.Mesh
-        if (m.isMesh) m.geometry.dispose()
+        if (m.isMesh && !m.userData.shared) m.geometry.dispose() // shared = prototype geometry
       })
     }
     this.traffic = []

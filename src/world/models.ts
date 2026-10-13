@@ -10,6 +10,7 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import { CONFIG } from '../config'
 import { buildHumanoid } from './Humanoid'
 import { blobShadow } from './Shadow'
+import { danfoInstance, kekeInstance } from './Vehicles'
 import { BUMP_STRIPE_M, DECAL, matDecal, matSpeedBump, planeToCell } from './RoadSurface'
 
 // --- shared materials -------------------------------------------------------
@@ -18,7 +19,6 @@ const M = {
   stripeBlack: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
   glass: new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.3, metalness: 0.2 }),
   tyre: new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 1 }),
-  kekeGreen: new THREE.MeshStandardMaterial({ color: 0x2e9e4f, roughness: 0.7 }),
   barricadeRed: new THREE.MeshStandardMaterial({ color: 0xd93025, roughness: 0.9 }),
   barricadeWhite: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 }),
   bannerCloth: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 1 }),
@@ -76,72 +76,15 @@ export function buildSpeedBump(): THREE.Object3D {
   return new THREE.Mesh(smooth, matSpeedBump)
 }
 
-/** Low-poly danfo: yellow body with black stripes, windows and wheels.
- *  Built facing −Z (length along Z); the caller orients it to the lane. */
+/** Lagos danfo — the detailed procedural model from Vehicles.ts (shared
+ *  geometry prototypes). Built facing −Z; the caller orients it to the lane. */
 export function buildDanfo(): THREE.Object3D {
-  const g = new THREE.Group()
-  g.add(blobShadow(1.25, 2.1))
-  const bodyW = 1.8
-  const bodyH = 1.6
-  const bodyL = 3.6
-
-  const body = new THREE.Mesh(new RoundedBoxGeometry(bodyW, bodyH, bodyL, 2, 0.16), M.danfoYellow)
-  body.position.y = 1.0
-  g.add(body)
-
-  // Two black stripes along the sides (the classic Lagos danfo look).
-  for (const sx of [-1, 1]) {
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.35, bodyL * 0.96), M.stripeBlack)
-    stripe.position.set(sx * (bodyW / 2 + 0.01), 1.05, 0)
-    g.add(stripe)
-  }
-
-  // Windscreen + rear window.
-  for (const sz of [-1, 1]) {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(bodyW * 0.9, 0.5, 0.06), M.glass)
-    win.position.set(0, 1.35, sz * (bodyL / 2 - 0.05))
-    g.add(win)
-  }
-
-  // Four wheels.
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.3, 12), M.tyre)
-      w.rotation.z = Math.PI / 2
-      w.position.set(sx * (bodyW / 2), 0.34, sz * (bodyL / 2 - 0.7))
-      g.add(w)
-    }
-  }
-  return g
+  return danfoInstance()
 }
 
-/** Keke napep: small green tricycle box with a yellow roof. */
+/** Keke napep — detailed procedural model from Vehicles.ts. Facing −Z. */
 export function buildKeke(): THREE.Object3D {
-  const g = new THREE.Group()
-  g.add(blobShadow(0.95, 1.2))
-  const body = new THREE.Mesh(new RoundedBoxGeometry(1.3, 1.1, 1.8, 2, 0.14), M.kekeGreen)
-  body.position.y = 0.75
-  g.add(body)
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.25, 1.85), M.danfoYellow)
-  roof.position.y = 1.35
-  g.add(roof)
-  for (const sz of [-1, 1]) {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.45, 0.05), M.glass)
-    win.position.set(0, 1.05, sz * 0.9)
-    g.add(win)
-  }
-  // Front single wheel + two rear wheels.
-  const front = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.25, 12), M.tyre)
-  front.rotation.z = Math.PI / 2
-  front.position.set(0, 0.28, 0.8)
-  g.add(front)
-  for (const sx of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.25, 12), M.tyre)
-    w.rotation.z = Math.PI / 2
-    w.position.set(sx * 0.55, 0.3, -0.7)
-    g.add(w)
-  }
-  return g
+  return kekeInstance()
 }
 
 /** Lagos yellow taxi: a small saloon, danfo-yellow with a black door stripe and

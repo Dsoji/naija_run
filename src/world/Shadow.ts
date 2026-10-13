@@ -31,5 +31,6 @@ export function blobShadow(halfW: number, halfL: number): THREE.Mesh {
   m.rotation.x = -Math.PI / 2
   m.position.y = 0.02
   m.renderOrder = -1
+  m.userData.blob = true // lets geometry-merging callers leave it out
   return m
 }

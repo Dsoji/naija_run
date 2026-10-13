@@ -285,6 +285,48 @@ Goal: stronger Lagos/Nigeria vibe across assets.
 - `Game` toasts "🌉 Ikoyi Link Bridge" once on entry (watches `curTile.bridge`).
 - Verified by temporarily setting BRIDGE_EVERY=2 and screenshotting, then reverting.
 
+### Vehicle pass — detailed danfo + keke (2026-10-11)
+- `src/world/Vehicles.ts`; `models.buildDanfo/buildKeke` now delegate to
+  `danfoInstance()/kekeInstance()` (obstacles, oncoming, parked, thief traffic
+  all pick it up). Facing −Z, door side = +X. Fits the existing colliders.
+- Danfo: Kombi-style lower shell + window band with pillars, split windscreen,
+  route painted above it (OSHODI / CMS • OBALENDE / IKEJA / MILE 12), round
+  lamps, grille, chrome pipe bumpers, Lagos plates, mirrors, mudflaps, black
+  bands, slogan on the back (our own: NO CONDITION IS PERMANENT, EKO O NI
+  BAJE…), stickers (GOD DEY, flag, no smoking, MIND YOUR BUSINESS), rust/dent/
+  scrape decals, roof rack with Ghana-must-go bags / blue drum / cartons, and
+  on door-open variants a conductor leaning out (head kept inside the 1.0 m
+  collider half-width). Yellow is a deep 0xe39e12 — ACES lifts/desaturates it.
+- Keke: yellow tub + narrow nose, green stripe, headlight, raked windscreen,
+  canopy on poles (black or green), painted rear flap saying, plate, seated driver.
+- Cost: 6 danfo + 4 keke PROTOTYPES built lazily, every part merged by material
+  (~18 meshes each incl. the person); spawns are clones sharing geometry,
+  flagged `userData.shared`. Thief traffic clean-up now skips shared geometry
+  (it used to dispose everything). `blobShadow` meshes are tagged
+  `userData.blob` so merges leave them out.
+
+### Building pass — weathered bay cards (2026-10-11)
+- `src/world/Buildings.ts` replaces the old box + CanvasTexture facade
+  (`Scenery.addBuilding`/`bakeFacade` removed). `addStreetScenery` calls
+  `addBuildingRow(g, dir, side, FACADE_DIST)` per side.
+- A building = box tiled with 3.2 m single-storey "bay cards" from ONE 1024²
+  procedural atlas (4×4): ground SHUTTER / OPEN_SHOP / GATE / DOOR / CHURCH /
+  KIOSK; upper BARRED / LOUVRE / AC / TWIN / BALCONY (laundry); PLAIN (sides,
+  backs); top-down roofs TANK / LAUNDRY / DISH / ZINC (the camera sees the many
+  low roofs). Weathering: rain streaks, laterite splash, peeled-to-cement
+  patches, cracks, slab band between storeys.
+- Wall colour = vertex-colour tint, applied only where the atlas ALPHA mask says
+  "paint" (onBeforeCompile on `color_fragment`), so cement/steel/glass/wood and
+  roofs stay untinted and one atlas covers every colour. The atlas is a
+  DataTexture because a canvas would premultiply/destroy that alpha mask.
+- Layout: rows of 1–4-bay buildings with occasional gaps/setbacks; mostly 1–2
+  storeys (35/35/17/9/4% for 1–5). 55% shop rows (signboards from an 8-sign
+  atlas: MAMA PUT, POS • TRANSFER, BARBING SALON, PATENT MEDICINE…, 40% zinc
+  awnings), 39% homes, rare church. Some taller roofs keep a 3D water tank.
+- All buildings on a tile side merge into one facade mesh + one sign mesh
+  (+ tanks), fewer draw calls than the old per-building box/cap/facade.
+- Canvas helpers moved to `src/world/paint.ts` (shared with RoadSurface).
+
 ### Road pass — textured surface (2026-10-11)
 - From the Danfo Run case study (`docs/CASE_STUDY_DANFO_RUN.md`): detail in
   textures, not polygons. Their art is proprietary (terms §7), so everything

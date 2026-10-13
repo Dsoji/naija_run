@@ -10,6 +10,7 @@ import { Sfx } from './Sfx'
 import { cellCenter, rightOf, turn, type EncounterInstance, type ObstacleBox, type Side, type TileInfo, type Vec2 } from '../world/Tile'
 import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
 import { preloadVehicles, policeGLB } from '../world/VehicleModels'
+import { BRIDGE_NAMES, tickWater } from '../world/Bridges'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -150,6 +151,10 @@ export class Game {
     )
     this.ground.rotation.x = -Math.PI / 2
     this.ground.position.y = -0.2
+    // Drawn first and never writes depth, so it acts as a backdrop: the lagoon
+    // under the bridges (several metres lower) still shows through it.
+    ;(this.ground.material as THREE.Material).depthWrite = false
+    this.ground.renderOrder = -10
     this.scene.add(this.ground)
 
     this.track = new Track(this.scene)
@@ -727,11 +732,11 @@ export class Game {
         const removed = this.track.update(this.player.currentIndex)
         this.player.currentIndex -= removed
 
-        // Announce the Ikoyi Link Bridge once, on entry.
+        // Announce each bridge once, on entry.
         const curTile = this.track.committed[this.player.currentIndex]
         if (curTile?.bridge && !this.onBridge) {
           this.onBridge = true
-          this.hud.toast('🌉 Ikoyi Link Bridge', 'info')
+          this.hud.toast(`🌉 ${BRIDGE_NAMES[curTile.bridge]}`, 'info')
         } else if (curTile && !curTile.bridge && this.onBridge) {
           this.onBridge = false
         }
@@ -757,6 +762,7 @@ export class Game {
     }
 
     this.updateDebug(dt)
+    tickWater(dt)
     this.renderer.render(this.scene, this.camera)
   }
 

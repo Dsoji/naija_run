@@ -7,7 +7,8 @@
 import * as THREE from 'three'
 import { CONFIG } from '../config'
 import type { EncounterDef } from '../encounters/types'
-import { addStreetScenery, addBridgeDecor, addMarketScenery } from './Scenery'
+import { addStreetScenery, addMarketScenery } from './Scenery'
+import type { BridgeKind } from './Bridges'
 import { addStraightRoad, addJunctionRoad } from './RoadSurface'
 
 export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY' | 'BRIDGE'
@@ -113,7 +114,7 @@ export interface TileInfo {
   thiefHint?: Side // the side the thief is shown taking (true ~70%, else decoy)
   shortcutBranch?: Side // junction branch turned into a market shortcut (Phase 5)
   market?: boolean // this tile is part of a market section
-  bridge?: boolean // this tile is part of an Ikoyi Link Bridge section
+  bridge?: BridgeKind // this tile is part of a bridge crossing (which one)
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */
   next?: TileInfo
@@ -138,10 +139,9 @@ function buildRoad(type: TileType, entryDir: Vec2, dirsOpen: Vec2[]): THREE.Grou
   }
 
   if (type === 'BRIDGE') {
-    // Bridge deck: road + markings, railings and water instead of kerbs and
-    // buildings. The pylon (middle tile only) is attached by the Track.
+    // Bridge deck: road + markings only. The Track dresses it (Bridges.ts)
+    // once it knows which bridge and where in the crossing this tile is.
     addStraightRoad(g, entryDir, 'bridge')
-    addBridgeDecor(g, entryDir)
     return g
   }
 

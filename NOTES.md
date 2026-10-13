@@ -351,6 +351,31 @@ Goal: stronger Lagos/Nigeria vibe across assets.
   the atlas pothole cell (2.2 m decal over the unchanged 0.9 m collider).
 - Per straight tile: ~7 meshes (was 5). Shared materials/textures, never disposed.
 
+### Bridges — Ikoyi Link + Third Mainland (2026-10-13)
+- Modelled from reference photos (Wikimedia Commons categories "Lekki-Ikoyi
+  Link Bridge" / "Third Mainland Bridge"; facts from Structurae + ICE). Photos
+  used as reference only — everything is procedural, nothing downloaded.
+- `src/world/Bridges.ts` (`addBridgeSection(g, dir, kind, idx, len)`), called by
+  Track for each BRIDGE tile; Tile.ts now only lays the road on BRIDGE tiles.
+  Old `Scenery.addBridgeDecor/addBridgePylon` removed. Crossings ALTERNATE
+  (`Track.bridgeKind`): Ikoyi `BRIDGE_LEN_IKOYI` 7 tiles, Third Mainland
+  `BRIDGE_LEN_TMB` 15 tiles; `TileInfo.bridge` is now the kind; Game toasts
+  `BRIDGE_NAMES[kind]` on entry.
+- Ikoyi: X-shaped white pylon (48 m) in a 4 m median at lateral −6.5, legs cross
+  ~44% up, crossbeam ladder + red/blue/amber lights, 16 stay-cables in the
+  median plane; b/w median barriers; raised walkways + chunky balustrades +
+  lamp posts both edges; opposite carriageway at −13; twin-column piers.
+- Third Mainland: b/w jersey barriers on both edges + median, parapet with steel
+  rail, double-arm median lamps, opposite carriageway at −9.95, a pier under
+  every span; lagoon life — canoes (some with a fisherman), stake rows, brush
+  parks, water hyacinth, Makoko stilt-house clusters (~every 5th tile).
+- Height: lagoon sits DROP below the deck (7 m Ikoyi, 4.5 m TMB). The world
+  ground plane now has depthWrite=false + renderOrder −10 (a backdrop), so the
+  lower water shows through it; sea walls close the water at each bridge end.
+  Ripple texture drifts via `tickWater(dt)` from the Game loop.
+- `src/world/merge.ts` — shared merge-by-material (bridges per tile; Vehicles
+  prototypes with `shared`).
+
 ### Speed bumps ("road pumps") — DONE (2026-10-11)
 - New full-width obstacle `BUMP` (Obstacles.ts): action JUMP, clearHeight 0.3,
   onHit **stumble** (slow-down, no ₦ penalty) — same family as potholes, not a

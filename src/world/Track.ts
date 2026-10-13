@@ -21,7 +21,7 @@ import {
   step,
   turn,
 } from './Tile'
-import { addBridgePylon } from './Scenery'
+import { type BridgeKind, addBridgeSection } from './Bridges'
 
 const JUNCTION_STUB = 3 // tiles grown down each branch before the player commits
 
@@ -42,6 +42,8 @@ export class Track {
   private marketExitListener: (() => void) | null = null
   private marketRemaining = 0
   private bridgeRemaining = 0
+  private bridgeLen = 0
+  private bridgeKind: BridgeKind = 'ikoyi' // crossings alternate Ikoyi Link ↔ Third Mainland
   private straightsSinceBridge = 0
 
   constructor(scene: THREE.Scene) {
@@ -78,6 +80,8 @@ export class Track {
     this.straightOnly = false
     this.marketRemaining = 0
     this.bridgeRemaining = 0
+    this.bridgeLen = 0
+    this.bridgeKind = 'ikoyi'
     this.straightsSinceBridge = 0
 
     // First tile: a straight heading north from the origin cell.
@@ -200,23 +204,25 @@ export class Track {
       return
     }
 
-    // Count tiles toward the next Ikoyi Link Bridge crossing.
+    // Count tiles toward the next bridge crossing.
     this.straightsSinceBridge++
 
     // Start a bridge crossing after running a while (straight-only section).
     if (this.bridgeRemaining === 0 && this.straightsSinceBridge >= CONFIG.BRIDGE_EVERY && this.canPlace(cell, after.cell)) {
-      this.bridgeRemaining = CONFIG.BRIDGE_LEN
+      this.bridgeLen = this.bridgeKind === 'ikoyi' ? CONFIG.BRIDGE_LEN_IKOYI : CONFIG.BRIDGE_LEN_TMB
+      this.bridgeRemaining = this.bridgeLen
       this.straightsSinceBridge = 0
     }
 
-    // Bridge section in progress: lay BRIDGE tiles; pylon on the middle one.
+    // Bridge section in progress: lay BRIDGE tiles and dress them for this crossing.
     if (this.bridgeRemaining > 0) {
-      const idx = CONFIG.BRIDGE_LEN - this.bridgeRemaining
+      const idx = this.bridgeLen - this.bridgeRemaining
       const t = this.makeTile('BRIDGE', cell, entry, entry)
-      t.bridge = true
-      if (idx === (CONFIG.BRIDGE_LEN >> 1)) addBridgePylon(t.group, entry)
+      t.bridge = this.bridgeKind
+      addBridgeSection(t.group, entry, this.bridgeKind, idx, this.bridgeLen)
       this.pushTile(t, after)
       this.bridgeRemaining--
+      if (this.bridgeRemaining === 0) this.bridgeKind = this.bridgeKind === 'ikoyi' ? 'thirdMainland' : 'ikoyi'
       return
     }
 

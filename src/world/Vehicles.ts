@@ -14,9 +14,9 @@
 
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { buildHumanoid, type HumanoidMats } from './Humanoid'
 import { blobShadow } from './Shadow'
+import { mergeByMaterial } from './merge'
 import { blotch, makeCanvas, pick, rand } from './paint'
 
 // --- texture atlas: slogans, routes, plates, stickers, wear, bag prints ----
@@ -264,34 +264,6 @@ function wheel(parts: Part[], r: number, w: number, x: number, z: number): void 
   parts.push(cylX(r * 0.6, w + 0.02, MAT.steel, x, r, z, 12))
 }
 
-/** Merge every part (and nested humanoid meshes) by material into a prototype. */
-function mergeParts(root: THREE.Object3D): THREE.Group {
-  root.updateMatrixWorld(true)
-  const buckets = new Map<THREE.Material, THREE.BufferGeometry[]>()
-  root.traverse((o) => {
-    const mesh = o as THREE.Mesh
-    if (!mesh.isMesh || mesh.userData.blob) return
-    let geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld)
-    if (geo.index) geo = geo.toNonIndexed()
-    for (const name of Object.keys(geo.attributes)) {
-      if (name !== 'position' && name !== 'normal' && name !== 'uv') geo.deleteAttribute(name)
-    }
-    const mat = mesh.material as THREE.Material
-    if (!buckets.has(mat)) buckets.set(mat, [])
-    buckets.get(mat)!.push(geo)
-  })
-  const proto = new THREE.Group()
-  for (const [mat, geos] of buckets) {
-    const merged = mergeGeometries(geos)
-    geos.forEach((g) => g.dispose())
-    if (!merged) continue
-    const m = new THREE.Mesh(merged, mat)
-    m.userData.shared = true
-    proto.add(m)
-  }
-  return proto
-}
-
 function instance(proto: THREE.Group, halfW: number, halfL: number): THREE.Object3D {
   const c = proto.clone(true) // shares geometry; userData.shared is copied
   c.add(blobShadow(halfW, halfL)) // added after: its own geometry, disposes normally
@@ -442,7 +414,7 @@ function buildDanfoParts(o: DanfoOpts): THREE.Group {
     pivot.position.set(0.72, 0.32, -0.3) // head stays within the 1.0 m collider half-width
     root.add(pivot)
   }
-  return mergeParts(root)
+  return mergeByMaterial(root, true)
 }
 
 let danfoProtos: THREE.Group[] | null = null
@@ -507,7 +479,7 @@ function buildKekeParts(flap: number, canopy: THREE.Material): THREE.Group {
   h.group.scale.setScalar(0.82)
   h.group.position.set(0, 0.28, -0.25)
   root.add(h.group)
-  return mergeParts(root)
+  return mergeByMaterial(root, true)
 }
 
 let kekeProtos: THREE.Group[] | null = null

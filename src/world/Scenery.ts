@@ -29,11 +29,6 @@ const matWood = new THREE.MeshStandardMaterial({ color: 0x4a3b2b, roughness: 1 }
 const matTransformer = new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 1 })
 const matWire = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1 })
 const matVerge = new THREE.MeshStandardMaterial({ color: 0x9c7a56, roughness: 1 })
-const matConcrete = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9 }) // bridge pylon/deck
-const matCable = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.8 })
-const matWater = new THREE.MeshStandardMaterial({ color: 0x2f6f99, roughness: 0.4, metalness: 0.1 })
-const matRail = new THREE.MeshStandardMaterial({ color: 0x1f5fa0, roughness: 0.8 }) // bridge railing blue
-const matRailTop = new THREE.MeshStandardMaterial({ color: 0xeef2f6, roughness: 0.8 })
 // Market stall / goods materials.
 const matStallWood = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 1 })
 const matSack = new THREE.MeshStandardMaterial({ color: 0xbfa06a, roughness: 1 })
@@ -251,107 +246,6 @@ function addVerge(g: THREE.Group, dir: Vec2, r: Vec2, side: number): void {
   m.rotation.x = -Math.PI / 2
   m.position.set(r.x * side * mid, -0.01, r.z * side * mid)
   g.add(m)
-}
-
-const UP = new THREE.Vector3(0, 1, 0)
-
-/** A cylinder spanning two points (frame-independent orientation). */
-function strut(
-  from: THREE.Vector3,
-  to: THREE.Vector3,
-  rBot: number,
-  rTop: number,
-  mat: THREE.Material,
-): THREE.Mesh {
-  const len = from.distanceTo(to)
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, len, 6), mat)
-  m.position.copy(from).lerp(to, 0.5)
-  m.quaternion.setFromUnitVectors(UP, to.clone().sub(from).normalize())
-  return m
-}
-
-/** An axis-aligned box sized (alongLen × h × depth) oriented along `dir`,
- *  centred at `lat` to the side and `along` down the tile. */
-function bridgeBox(
-  dir: Vec2,
-  r: Vec2,
-  side: number,
-  lat: number,
-  along: number,
-  y: number,
-  alongLen: number,
-  h: number,
-  depth: number,
-  mat: THREE.Material,
-): THREE.Mesh {
-  const geo =
-    dir.x === 0
-      ? new THREE.BoxGeometry(depth, h, alongLen)
-      : new THREE.BoxGeometry(alongLen, h, depth)
-  const m = new THREE.Mesh(geo, mat)
-  m.position.set(r.x * side * lat + dir.x * along, y, r.z * side * lat + dir.z * along)
-  return m
-}
-
-/** Bridge deck surroundings: water below + a railing down each edge. Called for
- *  every BRIDGE tile (the pylon is added separately on the middle tile). */
-export function addBridgeDecor(g: THREE.Group, dir: Vec2): void {
-  const r = { x: -dir.z, z: dir.x }
-
-  // Wide water plane beneath, covering the near field on both sides.
-  const waterW = 180
-  const waterGeo =
-    dir.x === 0
-      ? new THREE.PlaneGeometry(waterW, CONFIG.TILE_LEN)
-      : new THREE.PlaneGeometry(CONFIG.TILE_LEN, waterW)
-  const water = new THREE.Mesh(waterGeo, matWater)
-  water.rotation.x = -Math.PI / 2
-  water.position.y = -0.12
-  g.add(water)
-
-  // Railings: a low wall + white top rail + a few posts, each side.
-  const railLat = ROAD_HALF + 0.3
-  for (const side of [-1, 1]) {
-    g.add(bridgeBox(dir, r, side, railLat, 0, 0.3, CONFIG.TILE_LEN, 0.5, 0.16, matRail))
-    g.add(bridgeBox(dir, r, side, railLat, 0, 0.62, CONFIG.TILE_LEN, 0.1, 0.22, matRailTop))
-    for (const a of [-7, 0, 7]) {
-      g.add(bridgeBox(dir, r, side, railLat, a, 0.35, 0.16, 0.7, 0.16, matRail))
-    }
-  }
-}
-
-/** The Lekki–Ikoyi Link Bridge pylon: a single leaning tower straddling one edge
- *  of the deck with stay-cables fanning across to both edges. Added by the Track
- *  onto the middle tile of a bridge section. */
-export function addBridgePylon(g: THREE.Group, dir: Vec2): void {
-  const r = { x: -dir.z, z: dir.x }
-  const side = 1 // pylon on the right edge, leaning over the deck
-  const H = 27
-  const lean = 0.2
-  const baseLat = ROAD_HALF + 1.0
-  const base = new THREE.Vector3(r.x * side * baseLat, 0, r.z * side * baseLat)
-  const n = new THREE.Vector3(-r.x * side, 0, -r.z * side) // toward deck centre
-  const top = base
-    .clone()
-    .add(new THREE.Vector3(0, H * Math.cos(lean), 0))
-    .add(n.clone().multiplyScalar(H * Math.sin(lean)))
-  g.add(strut(base, top, 1.1, 0.4, matConcrete))
-  // A pier block at the base.
-  g.add(bridgeBox(dir, r, side, baseLat, 0, 1.0, 2.4, 2.0, 1.6, matConcrete))
-
-  // Stay cables fan from near the top to anchor points along BOTH deck edges.
-  const anchorTop = top.clone().setY(top.y - 1.5)
-  for (const edge of [-1, 1]) {
-    const anchorLat = ROAD_HALF - 0.3
-    for (const s of [-8, -4, 0, 4, 8]) {
-      const anchor = new THREE.Vector3(
-        r.x * edge * anchorLat + dir.x * s,
-        1.0,
-        r.z * edge * anchorLat + dir.z * s,
-      )
-      g.add(strut(anchorTop, anchor, 0.05, 0.05, matCable))
-    }
-  }
 }
 
 /** Tall expressway lamp standard (Third Mainland Bridge vibe): pole + curved arm

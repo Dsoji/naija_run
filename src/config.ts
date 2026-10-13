@@ -50,8 +50,9 @@ export const CONFIG = {
   CATCH_DISTANCE: 120, // metres of clean runway to the stuck thief when chase hits 100
   CATCH_REACH: 6, // metres from the thief that counts as CAUGHT
   MARKET_LEN: 7, // tiles in a Nero market shortcut section
-  BRIDGE_EVERY: 38, // straight tiles between Ikoyi Link Bridge crossings (~760m)
-  BRIDGE_LEN: 7, // tiles in a bridge section (pylon sits on the middle one)
+  BRIDGE_EVERY: 38, // straight tiles between bridge crossings (~760m); Ikoyi Link and Third Mainland alternate
+  BRIDGE_LEN_IKOYI: 7, // tiles in an Ikoyi Link crossing (pylon sits on the middle one)
+  BRIDGE_LEN_TMB: 15, // tiles in a Third Mainland crossing (the long, low one)
   NERO_AHEAD: 8, // metres Nero runs ahead of the player in the market
   CALLOUT_LOOKAHEAD: 16, // metres ahead Nero warns about an obstacle
   CALLOUT_COOLDOWN: 0.6, // seconds between Nero callouts

@@ -2,19 +2,17 @@
 // Everything is added as children of the tile group so it recycles/disposes with
 // the tile for free (see Tile.disposeTile). Visuals only — no colliders.
 //
-// Approach (2.5D hybrid, per NOTES.md): building MASS is a low-poly box; the
-// road-facing FACADE is a flat plane with a pre-baked CanvasTexture (window grid
-// + a ground-floor awning carrying a Nigerian shop name). Textures are baked once
-// at module load and shared, so the GPU cost is a handful of small textures no
-// matter how many buildings stream past; only the per-building geometry churns.
+// Buildings come from Buildings.ts (boxes tiled with weathered bay cards, one
+// merged mesh per side). Everything else here is low-poly props with shared
+// materials, so the GPU cost stays flat no matter how much street streams past.
 
 import * as THREE from 'three'
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { CONFIG } from '../config'
 import type { Vec2 } from './Tile'
 import { buildDanfo, buildKeke, buildTaxi, buildOkada } from './models'
 import { carGLB, okadaGLB } from './VehicleModels'
 import { blobShadow } from './Shadow'
+import { addBuildingRow } from './Buildings'
 
 const ROAD_HALF = CONFIG.ROAD_W / 2
 const SIDEWALK = CONFIG.SIDEWALK_W
@@ -22,27 +20,10 @@ const VERGE = 2.6 // dusty strip between the curb and the building line
 const FACADE_DIST = ROAD_HALF + SIDEWALK + VERGE // lateral distance to building front
 
 // --- Palettes --------------------------------------------------------------
-// Muted, slightly weathered walls; bright awnings — the Lagos streetscape read.
-const WALL_COLORS = [0xd9c3a3, 0xc98a5e, 0xb6b19c, 0x9fb1bd, 0xd1b07a, 0xc56b55, 0xa7b7a2, 0xe0cfa8]
+// Bright kiosk colours — the Lagos streetscape read.
 const AWNING_COLORS = [0xef4444, 0x16a34a, 0xf59e0b, 0x2563eb, 0xdb2777, 0x0891b2, 0x7c3aed]
-const SHOP_NAMES = [
-  'MAMA PUT',
-  "GOD'S TIME",
-  'NO WAHALA',
-  'BLESSED',
-  'OGA STORES',
-  'CHOP LIFE',
-  'GRACE VENTURES',
-  'EL-SHADDAI',
-  'NAIJA STYLE',
-  'BUKA EXPRESS',
-  'CELE PHONES',
-  'HUSTLE & PRAY',
-]
 
 // --- Shared materials (constant count; never disposed) ---------------------
-const matRoof = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1 })
-const matTank = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.9 })
 const matPole = new THREE.MeshStandardMaterial({ color: 0x6b6b6b, roughness: 1 })
 const matWood = new THREE.MeshStandardMaterial({ color: 0x4a3b2b, roughness: 1 })
 const matTransformer = new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 1 })
@@ -98,93 +79,8 @@ const ADS: Array<{ bg: number; fg: string; name: string; tag: string }> = [
   { bg: 0xf97316, fg: '#2a0a00', name: 'JUMIA', tag: 'SHOP NOW • PAY LESS' },
 ]
 
-// Wall-mass materials paired 1:1 with facade materials (same base wall colour).
-const wallMats: THREE.MeshStandardMaterial[] = []
-const facadeMats: THREE.MeshStandardMaterial[] = []
-
 function hex(c: number): string {
   return '#' + c.toString(16).padStart(6, '0')
-}
-
-/** Bake one building facade: wall + window grid + ground-floor shop + awning. */
-function bakeFacade(wall: number, awning: number, name: string): THREE.CanvasTexture {
-  const W = 256
-  const H = 448
-  const cv = document.createElement('canvas')
-  cv.width = W
-  cv.height = H
-  const ctx = cv.getContext('2d')!
-
-  // Wall base.
-  ctx.fillStyle = hex(wall)
-  ctx.fillRect(0, 0, W, H)
-
-  // Faint vertical grime streaks for texture.
-  ctx.fillStyle = 'rgba(0,0,0,0.05)'
-  for (let i = 0; i < 6; i++) {
-    const x = Math.random() * W
-    ctx.fillRect(x, 0, 2 + Math.random() * 3, H)
-  }
-
-  // Window grid over the upper ~70%.
-  const cols = 3
-  const rows = 4
-  const gx = W * 0.1
-  const gy = H * 0.06
-  const cellW = (W - gx * 2) / cols
-  const cellH = (H * 0.66 - gy) / rows
-  const winW = cellW * 0.62
-  const winH = cellH * 0.6
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const x = gx + c * cellW + (cellW - winW) / 2
-      const y = gy + r * cellH + (cellH - winH) / 2
-      ctx.fillStyle = '#2b2f36' // frame
-      ctx.fillRect(x - 2, y - 2, winW + 4, winH + 4)
-      // Some windows lit warm, some dark glass.
-      ctx.fillStyle = Math.random() < 0.3 ? '#ffd27a' : '#1b2430'
-      ctx.fillRect(x, y, winW, winH)
-    }
-  }
-
-  // Ground floor: awning band + shop name + dark shopfront.
-  const gfTop = H * 0.72
-  ctx.fillStyle = '#20242b'
-  ctx.fillRect(0, gfTop + 46, W, H - gfTop) // shopfront shadow
-  // Awning (bright band).
-  ctx.fillStyle = hex(awning)
-  ctx.fillRect(0, gfTop, W, 46)
-  // Scalloped lower edge of the awning.
-  ctx.beginPath()
-  const scallop = 12
-  for (let x = 0; x <= W; x += scallop) {
-    ctx.moveTo(x, gfTop + 46)
-    ctx.arc(x + scallop / 2, gfTop + 46, scallop / 2, Math.PI, 0, true)
-  }
-  ctx.fill()
-  // Shop name.
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 26px Arial, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(name, W / 2, gfTop + 22, W - 16)
-  // Doorway.
-  ctx.fillStyle = '#0d1116'
-  ctx.fillRect(W / 2 - 24, H - 70, 48, 70)
-
-  const tex = new THREE.CanvasTexture(cv)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
-  return tex
-}
-
-// Bake a varied set once.
-for (let i = 0; i < 10; i++) {
-  const wall = WALL_COLORS[i % WALL_COLORS.length]
-  const awning = AWNING_COLORS[(i * 3) % AWNING_COLORS.length]
-  const name = SHOP_NAMES[(i * 5) % SHOP_NAMES.length]
-  wallMats.push(new THREE.MeshStandardMaterial({ color: wall, roughness: 1 }))
-  facadeMats.push(new THREE.MeshStandardMaterial({ map: bakeFacade(wall, awning, name), roughness: 1 }))
 }
 
 /** Bake one billboard advert texture (landscape). */
@@ -258,62 +154,6 @@ const VEHICLES: Array<() => THREE.Object3D> = [
 /** Yaw so a vehicle's local +Z (its length) aligns with the road heading. */
 function vehicleYaw(dir: Vec2, reverse: boolean): number {
   return Math.atan2(dir.x, dir.z) + (reverse ? Math.PI : 0)
-}
-
-/** Build one building on `side` (-1 left / +1 right of travel) of the tile. */
-function addBuilding(g: THREE.Group, dir: Vec2, r: Vec2, side: number): void {
-  const idx = (Math.random() * facadeMats.length) | 0
-  const alongW = CONFIG.TILE_LEN - (1.5 + Math.random() * 3) // ~15.5–18.5 → near-continuous row
-  const depth = 5 + Math.random() * 4
-  const h = 5 + Math.random() * 12
-  const alongC = (Math.random() - 0.5) * 1.5
-  const centerDist = FACADE_DIST + depth / 2
-
-  // Mass box with softly chamfered edges (dims depend on heading axis) — the
-  // rounded verticals catch the key light so buildings read as concrete masses
-  // rather than flat cubes.
-  const boxGeo =
-    dir.x === 0
-      ? new RoundedBoxGeometry(depth, h, alongW, 2, 0.3)
-      : new RoundedBoxGeometry(alongW, h, depth, 2, 0.3)
-  const box = new THREE.Mesh(boxGeo, wallMats[idx])
-  box.position.set(
-    r.x * side * centerDist + dir.x * alongC,
-    h / 2,
-    r.z * side * centerDist + dir.z * alongC,
-  )
-  g.add(box)
-
-  // Roof cap.
-  const capGeo =
-    dir.x === 0
-      ? new THREE.BoxGeometry(depth + 0.3, 0.2, alongW + 0.3)
-      : new THREE.BoxGeometry(alongW + 0.3, 0.2, depth + 0.3)
-  const cap = new THREE.Mesh(capGeo, matRoof)
-  cap.position.set(box.position.x, h + 0.1, box.position.z)
-  g.add(cap)
-
-  // Road-facing facade plane.
-  const facade = new THREE.Mesh(new THREE.PlaneGeometry(alongW * 0.96, h), facadeMats[idx])
-  const n = { x: -r.x * side, z: -r.z * side } // normal points toward the road
-  facade.rotation.y = Math.atan2(n.x, n.z)
-  facade.position.set(
-    r.x * side * (FACADE_DIST - 0.03) + dir.x * alongC,
-    h / 2,
-    r.z * side * (FACADE_DIST - 0.03) + dir.z * alongC,
-  )
-  g.add(facade)
-
-  // Rooftop water tank (iconic Lagos skyline detail).
-  if (Math.random() < 0.45) {
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.9, 10), matTank)
-    tank.position.set(
-      box.position.x + r.x * side * (depth * 0.18),
-      h + 0.55,
-      box.position.z + r.z * side * (depth * 0.18),
-    )
-    g.add(tank)
-  }
 }
 
 /** Utility pole on one side; returns the crossbar-end world point for wiring. */
@@ -772,7 +612,7 @@ export function addStreetScenery(g: THREE.Group, dir: Vec2): void {
   // life: parked vehicles and bits of clutter.
   for (const side of [-1, 1]) {
     addVerge(g, dir, r, side)
-    addBuilding(g, dir, r, side)
+    addBuildingRow(g, dir, side, FACADE_DIST) // textured Lagos street wall (Buildings.ts)
     if (Math.random() < 0.3) addKiosk(g, dir, r, side, (Math.random() - 0.5) * 12)
     if (Math.random() < 0.32) addParkedVehicle(g, dir, r, side, (Math.random() - 0.5) * 14)
     if (Math.random() < 0.15) addClutter(g, dir, r, side, (Math.random() - 0.5) * 14)

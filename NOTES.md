@@ -351,6 +351,40 @@ Goal: stronger Lagos/Nigeria vibe across assets.
   the atlas pothole cell (2.2 m decal over the unchanged 0.9 m collider).
 - Per straight tile: ~7 meshes (was 5). Shared materials/textures, never disposed.
 
+### Feel pass — runner swap, fair turns, Subway-Surfers movement (2026-10-13)
+- Owner: "the runner figure changed". Cause: the procedural stand-in showed for
+  ~13 s until the 2.2 MB GLB arrived (its request only started ~3 s in), then
+  swapped mid-run. Fixes: stripped 38 unused clips from the GLB (45 → 7, 2.2 MB →
+  0.9 MB; CREDITS notes the modification); `<link rel=preload>` in index.html
+  (fetch now starts at ~30 ms); the first run waits for the model ("Loading
+  runner…", max 8 s); a model that loads mid-run is held until the next reset.
+- Owner: "turn and immediately see obstacles I can't dodge". The first straight
+  after any turn/junction is now a `landing` tile (Track marks it, incl. both
+  junction branches) and gets no obstacles → ≥ ~36 m past the pivot. Verified:
+  0 of 34 landing tiles over 40 simulated tracks had obstacles.
+- Movement (owner: "as smooth as Subway Surfers"):
+  - Lane change = fixed-time ease-out (LANE_TIME 0.16 s) restarted from the
+    current offset, so double swipes chain; body leans into it (LANE_LEAN).
+  - Corner pivot no longer teleports side-lane runners ~3 m: the offset is
+    carried and eased out (PIVOT_SMOOTH).
+  - Jump: quick rise / longer fall (JUMP_APEX 0.42), jump buffered if pressed
+    just before landing (JUMP_BUFFER_MS); swipe down mid-air = fast drop into a
+    slide (FAST_FALL_SPEED) instead of snapping to the ground.
+  - Swipes fire on touchmove the moment the finger travels SWIPE_MIN_PX (26),
+    no lift needed; a continued drag re-arms. touchend is only a fallback/tap.
+  - Camera follows 60% of lane changes (CAM_LATERAL_FOLLOW), rises a little
+    with jumps, and uses frame-rate-independent exp smoothing.
+
+### Runner kit — skin + clothes on the mannequin (2026-10-13)
+- Owner: "give it clothings and human color". The GLB is one grey mannequin
+  mesh (no clothing parts), so `RunnerModel.kitMaterial` paints by body region
+  from the BIND-POSE position (vertex `position` before skinning → the kit moves
+  with the rig). Mesh is a T-pose, Z-up: h = height 0..1, ax = |x| from centre.
+  Regions: soles/boots, green socks, skin knees, white shorts, green jersey (+
+  shoulder tops), arms = green sleeves → white cuffs → skin, skin neck/face,
+  black hair cap. Colours in `KIT`. No face features (mannequin head) — a proper
+  clothed GLB is still the real fix (see memory/backlog).
+
 ### Bridges — Ikoyi Link + Third Mainland (2026-10-13)
 - Modelled from reference photos (Wikimedia Commons categories "Lekki-Ikoyi
   Link Bridge" / "Third Mainland Bridge"; facts from Structurae + ICE). Photos

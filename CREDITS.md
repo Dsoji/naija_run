@@ -5,9 +5,13 @@
 - **Runner character** — "Animated Base Character" by **Quaternius**.
   License: **CC BY** (Creative Commons Attribution).
   Source: https://poly.pizza/m/cwYvO5UauX · https://quaternius.com
-  Used for the player runner (`public/models/naija-runner.glb`), tinted green.
+  Used for the player runner (`public/models/naija-runner.glb`).
   The runner uses the model's bundled skeletal animations (Sprint / Jump / Roll /
   Death) via `THREE.AnimationMixer`.
+  **Modified:** unused animation clips were removed to shrink the file
+  (45 → 7 clips: Sprint, Jump Start/Loop/Land, Roll, Death, Idle; 2.2 MB → 0.9 MB).
+  Mesh, rig and the kept animations are unchanged. In game it is recoloured by
+  a shader (skin, hair, green/white football kit); the file's materials are not edited.
 
 ### Vehicles (poly.pizza)
 

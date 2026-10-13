@@ -37,6 +37,14 @@ export class Player {
   dir: Vec2 = { x: 0, z: -1 }
   private lane = 0
   private laneOffset = 0
+  private laneFrom = 0 // offset when the current lane change began
+  private laneT = 1 // 0..1 progress of the current lane change
+  private lean = 0 // body roll into lane changes (radians)
+  private y = 0 // height above the road
+  private jumpBufferedUntil = 0 // a jump pressed just before landing fires on touchdown
+  private readonly pivotOffset = new THREE.Vector3() // eases the corner instead of a lateral jump
+  private readonly lastBase = new THREE.Vector3()
+  private justPivoted: Vec2 | null = null // heading before the pivot (set for one frame)
 
   currentIndex = 0
   distAlong = 0
@@ -58,6 +66,10 @@ export class Player {
   private readonly armR: THREE.Group
   private readonly body: THREE.Group
   private model: RunnerModel | null = null
+  private pendingModel: RunnerModel | null = null // loaded mid-run: swapped in at the next reset
+  private runStarted = false
+  /** Resolves once the rigged runner has loaded (or failed → procedural stays). */
+  readonly modelReady: Promise<void>
   private readonly shield: THREE.Mesh
   private protectTimer = 0
   private readonly track: Track
@@ -91,15 +103,15 @@ export class Player {
     this.armR = human.armR
     this.group.add(this.body)
 
-    // Swap the procedural figure for the rigged GLB runner once it loads.
-    loadRunnerModel('/models/naija-runner.glb')
+    // Swap the procedural figure for the rigged GLB runner once it loads — but
+    // never mid-run (that read as the runner "changing"): if a run is already
+    // under way, hold it until the next reset.
+    this.modelReady = loadRunnerModel('/models/naija-runner.glb')
       .then((m) => {
-        this.model = m
         m.root.rotation.y = 0 // face the direction of travel (−z)
         m.root.scale.setScalar(1.15)
-        this.group.add(m.root)
-        this.body.visible = false
-        m.play('run')
+        if (this.runStarted) this.pendingModel = m
+        else this.applyModel(m)
       })
       .catch(() => {
         /* keep the procedural humanoid */
@@ -118,11 +130,30 @@ export class Player {
     scene.add(this.group)
   }
 
+  private applyModel(m: RunnerModel): void {
+    this.model = m
+    this.group.add(m.root)
+    this.body.visible = false
+    m.play('run')
+  }
+
   reset(): void {
+    if (this.pendingModel) {
+      this.applyModel(this.pendingModel)
+      this.pendingModel = null
+    }
+    this.runStarted = false
     this.state = 'RUN'
     this.dir = { x: 0, z: -1 }
     this.lane = 0
     this.laneOffset = 0
+    this.laneFrom = 0
+    this.laneT = 1
+    this.lean = 0
+    this.y = 0
+    this.jumpBufferedUntil = 0
+    this.pivotOffset.set(0, 0, 0)
+    this.justPivoted = null
     this.currentIndex = 0
     this.distAlong = 0
     this.distance = 0
@@ -211,14 +242,25 @@ export class Player {
   }
   onJump(): void {
     if (this.state === 'DEAD') return
+    // Already airborne: remember the press and fire it the moment we land.
+    if (this.state === 'JUMP' || this.y > 0.05) {
+      this.jumpBufferedUntil = performance.now() + CONFIG.JUMP_BUFFER_MS
+      return
+    }
+    this.startJump()
+  }
+  private startJump(): void {
     this.state = 'JUMP'
     this.jumpT = 0
+    this.jumpBufferedUntil = 0
     this.body.scale.set(1, 1, 1)
   }
   onSlide(): void {
     if (this.state === 'DEAD') return
+    // Mid-air this becomes a fast drop straight into the slide (no snap to the ground).
     this.state = 'SLIDE'
     this.slideT = 0
+    this.jumpBufferedUntil = 0
   }
 
   private handleLateral(side: Side): void {
@@ -256,7 +298,12 @@ export class Player {
 
   private changeLane(side: Side): void {
     if (this.state === 'DEAD') return
-    this.lane = Math.max(-1, Math.min(1, this.lane + (side === 'R' ? 1 : -1)))
+    const next = Math.max(-1, Math.min(1, this.lane + (side === 'R' ? 1 : -1)))
+    if (next === this.lane) return
+    this.lane = next
+    // Restart the glide from wherever we are, so a second swipe mid-move chains smoothly.
+    this.laneFrom = this.laneOffset
+    this.laneT = 0
   }
 
   // --- update ----------------------------------------------------------------
@@ -269,6 +316,7 @@ export class Player {
       this.model.play(this.animClip())
     }
     if (this.state === 'DEAD') return
+    this.runStarted = true
     const sdt = dt * this.clock.scale
 
     // Promote a buffered turn once the window opens.
@@ -291,6 +339,7 @@ export class Player {
     // Pivot at the tile centre.
     if (tile.requiresTurn && !this.pivoted && prev < HALF && this.distAlong >= HALF) {
       if (this.turnLocked) {
+        this.justPivoted = this.dir
         this.dir = tile.exitDir
         this.pivoted = true
         if (this.state === 'TURNING') this.state = 'RUN'
@@ -328,7 +377,10 @@ export class Player {
   private updateVertical(dt: number): void {
     if (this.state === 'JUMP') {
       this.jumpT += dt
-      if (this.jumpT >= CONFIG.JUMP_TIME) this.state = 'RUN'
+      if (this.jumpT >= CONFIG.JUMP_TIME) {
+        this.state = 'RUN'
+        if (performance.now() < this.jumpBufferedUntil) this.startJump()
+      }
     } else if (this.state === 'SLIDE') {
       this.slideT += dt
       if (this.slideT >= CONFIG.SLIDE_TIME) this.state = 'RUN'
@@ -352,24 +404,48 @@ export class Player {
       pos.copy(entryEdge).addScaledVector(toV3(tile.entryDir), this.distAlong)
     }
 
-    // Lane offset (smoothed), perpendicular to the current heading.
+    // Lane glide: a fixed-time ease-out (snappy start, soft landing), like
+    // Subway Surfers — not an exponential creep that never quite arrives.
+    const prevOffset = this.laneOffset
     const target = this.lane * CONFIG.LANE_W
-    this.laneOffset += (target - this.laneOffset) * Math.min(1, dt / CONFIG.LANE_LERP)
+    this.laneT = Math.min(1, this.laneT + dt / CONFIG.LANE_TIME)
+    const e = 1 - (1 - this.laneT) ** 3
+    this.laneOffset = this.laneFrom + (target - this.laneFrom) * e
     const r = rightOf(heading)
     pos.x += r.x * this.laneOffset
     pos.z += r.z * this.laneOffset
 
-    // Jump arc.
-    let y = 0
+    // Corner: the side-lane offset rotates with the heading at the pivot, which
+    // used to teleport the runner sideways. Carry the difference and ease it out.
+    if (this.justPivoted) {
+      const expected = this.lastBase.clone().addScaledVector(toV3(this.justPivoted), move)
+      this.pivotOffset.add(expected.sub(pos).setY(0))
+      this.justPivoted = null
+    }
+    this.lastBase.copy(pos)
+    this.pivotOffset.multiplyScalar(Math.exp(-dt / CONFIG.PIVOT_SMOOTH))
+    pos.add(this.pivotOffset)
+
+    // Jump: quick rise, a beat of hang time, then the fall. A slide started
+    // mid-air drops fast instead of snapping to the ground.
     if (this.state === 'JUMP') {
       const t = this.jumpT / CONFIG.JUMP_TIME
-      y = CONFIG.JUMP_HEIGHT * 4 * t * (1 - t)
+      const k = CONFIG.JUMP_APEX // fraction of the jump spent rising
+      this.y = t < k ? CONFIG.JUMP_HEIGHT * (1 - (1 - t / k) ** 2) : CONFIG.JUMP_HEIGHT * (1 - ((t - k) / (1 - k)) ** 2)
+    } else {
+      this.y = Math.max(0, this.y - CONFIG.FAST_FALL_SPEED * dt)
     }
-    pos.y = y
+    pos.y = this.y
     this.group.position.copy(pos)
 
     // Face the heading (smoothed so pivots don't snap).
-    this.group.rotation.y = lerpAngle(this.group.rotation.y, yawOf(heading), Math.min(1, dt * 12))
+    this.group.rotation.y = lerpAngle(this.group.rotation.y, yawOf(heading), 1 - Math.exp(-dt * 14))
+
+    // Lean into lane changes, settling back upright.
+    const latVel = dt > 0 ? (this.laneOffset - prevOffset) / dt : 0
+    const leanTarget = Math.max(-CONFIG.LANE_LEAN, Math.min(CONFIG.LANE_LEAN, -latVel * 0.035))
+    this.lean += (leanTarget - this.lean) * (1 - Math.exp(-dt * 18))
+    if (this.model) this.model.root.rotation.z = this.lean
 
     // The rigged model animates itself; the procedural fallback is posed here.
     if (this.model) return
@@ -378,6 +454,7 @@ export class Player {
     // so the body drops low and leans back like a baseball slide.
     const recline = this.state === 'SLIDE' ? 1.15 : 0
     this.body.rotation.x += (recline - this.body.rotation.x) * Math.min(1, dt * 14)
+    this.body.rotation.z = this.lean
 
     if (this.state === 'SLIDE') {
       // Fixed slide pose: legs thrust forward, arms swept back.

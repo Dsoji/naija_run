@@ -12,6 +12,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Naija Run</title>
+    <!-- Start fetching the runner model with the page, not after the JS boots. -->
+    <link rel="preload" href="/models/naija-runner.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" />
   </head>
   <body>
     <div id="app"></div>

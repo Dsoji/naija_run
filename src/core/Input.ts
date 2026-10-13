@@ -20,6 +20,8 @@ export class Input {
   private touchX = 0
   private touchY = 0
   private touchT = 0
+  private swiped = false // this touch already fired a swipe (it fires mid-drag)
+  private readonly onTouchMove = (e: TouchEvent) => this.handleTouchMove(e)
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e)
   private readonly onTouchStart = (e: TouchEvent) => this.handleTouchStart(e)
   private readonly onTouchEnd = (e: TouchEvent) => this.handleTouchEnd(e)
@@ -31,12 +33,14 @@ export class Input {
     this.emit = emit
     window.addEventListener('keydown', this.onKey)
     el.addEventListener('touchstart', this.onTouchStart, { passive: true })
+    el.addEventListener('touchmove', this.onTouchMove, { passive: true })
     el.addEventListener('touchend', this.onTouchEnd, { passive: false })
   }
 
   dispose(): void {
     window.removeEventListener('keydown', this.onKey)
     this.el.removeEventListener('touchstart', this.onTouchStart)
+    this.el.removeEventListener('touchmove', this.onTouchMove)
     this.el.removeEventListener('touchend', this.onTouchEnd)
   }
 
@@ -95,6 +99,26 @@ export class Input {
     this.touchX = t.clientX
     this.touchY = t.clientY
     this.touchT = performance.now()
+    this.swiped = false
+  }
+
+  /** Fire the swipe the moment the finger has travelled far enough — no need to
+   *  lift it (Subway Surfers-style). Keep dragging the other way and the same
+   *  touch can fire again, so quick double-lane moves feel instant. */
+  private handleTouchMove(e: TouchEvent): void {
+    const t = e.changedTouches[0]
+    const dx = t.clientX - this.touchX
+    const dy = t.clientY - this.touchY
+    const adx = Math.abs(dx)
+    const ady = Math.abs(dy)
+    if (Math.max(adx, ady) < CONFIG.SWIPE_MIN_PX) return
+    if (adx > ady) this.emit(dx > 0 ? 'right' : 'left')
+    else this.emit(dy > 0 ? 'down' : 'up')
+    this.swiped = true
+    // Re-arm from here so a continued drag counts as a fresh swipe.
+    this.touchX = t.clientX
+    this.touchY = t.clientY
+    this.touchT = performance.now()
   }
 
   private handleTouchEnd(e: TouchEvent): void {
@@ -104,8 +128,13 @@ export class Input {
     const dt = performance.now() - this.touchT
     const adx = Math.abs(dx)
     const ady = Math.abs(dy)
+    if (this.swiped) {
+      e.preventDefault() // already handled mid-drag; never also count it as a tap
+      return
+    }
 
-    // A quick, long-enough drag is a swipe; anything smaller is a tap.
+    // Fallback for a flick too quick for any touchmove: a long-enough drag is a
+    // swipe; anything smaller is a tap.
     if (dt <= CONFIG.SWIPE_MAX_MS && Math.max(adx, ady) >= CONFIG.SWIPE_MIN_PX) {
       e.preventDefault()
       if (adx > ady) this.emit(dx > 0 ? 'right' : 'left')

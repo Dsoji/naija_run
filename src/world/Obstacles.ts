@@ -6,7 +6,8 @@
 // Fair-spawn rules: straights only; never block all 3 lanes (a lane row uses at
 // most 2 of 3 lanes, so there's always an escape); obstacles sit near the tile
 // centre (along 6–12 m) so they stay >10 m clear of the next tile's turn
-// window. Density (spawn chance) ramps with distance DENSITY_START → DENSITY_MAX.
+// window; and the first straight after any turn (`landing`) stays empty.
+// Density (spawn chance) ramps with distance DENSITY_START → DENSITY_MAX.
 
 import * as THREE from 'three'
 import { CONFIG } from '../config'
@@ -72,6 +73,7 @@ export class Obstacles {
   /** Dense market-corridor obstacles (spec §5/§7): stalls, kekes, banners,
    *  potholes, goats — always something, often two lanes, never all three. */
   decorateMarket(info: TileInfo): void {
+    if (info.landing) return // just turned into the market — give the player a beat
     const along = 8 + Math.random() * 4
     if (Math.random() < 0.22) {
       this.add(info, BANNER, along, 0) // slide gate
@@ -90,6 +92,7 @@ export class Obstacles {
   decorate(info: TileInfo): void {
     this.straightCount++
     if (this.straightCount < 4) return // calm opening
+    if (info.landing) return // first straight after a turn: no ambush round the corner
 
     const density =
       CONFIG.DENSITY_START +

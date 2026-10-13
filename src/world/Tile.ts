@@ -114,6 +114,7 @@ export interface TileInfo {
   thiefHint?: Side // the side the thief is shown taking (true ~70%, else decoy)
   shortcutBranch?: Side // junction branch turned into a market shortcut (Phase 5)
   market?: boolean // this tile is part of a market section
+  landing?: boolean // first straight after a turn/junction — kept clear of obstacles
   bridge?: BridgeKind // this tile is part of a bridge crossing (which one)
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */

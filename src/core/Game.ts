@@ -101,6 +101,8 @@ export class Game {
   private money = 0
   private catching = false
   private onBridge = false
+  private runnerReady = false // the rigged runner has loaded (or we gave up waiting)
+  private startQueued = false
   private catchAtDistance = 0
   private runStartMs = 0
   private frames = 0
@@ -240,6 +242,16 @@ export class Game {
     this.rig.snap(this.player)
     this.screens.showStart(() => this.start())
 
+    // Don't start the first run on the stand-in figure: wait for the rigged
+    // runner (preloaded from index.html), but never more than 8 s.
+    const ready = () => {
+      if (this.runnerReady) return
+      this.runnerReady = true
+      if (this.startQueued) this.start()
+    }
+    this.player.modelReady.then(ready)
+    window.setTimeout(ready, 8000)
+
     this.loop()
   }
 
@@ -288,6 +300,12 @@ export class Game {
   }
 
   private start(): void {
+    if (!this.runnerReady) {
+      this.startQueued = true
+      this.screens.setPrimaryBusy('Loading runner…')
+      return
+    }
+    this.startQueued = false
     this.screens.hide()
     this.sfx.resume()
     this.sfx.startMusic()

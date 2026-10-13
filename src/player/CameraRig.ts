@@ -56,11 +56,11 @@ export class CameraRig {
       this.yaw = targetYaw
       this.yawInit = true
     }
-    this.yaw = lerpAngle(this.yaw, targetYaw, Math.min(1, dt / CONFIG.CAM_YAW_LERP))
+    this.yaw = lerpAngle(this.yaw, targetYaw, 1 - Math.exp(-dt / CONFIG.CAM_YAW_LERP))
     const smoothed: Vec2 = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) }
 
     const { pos, look } = this.targets(player, smoothed)
-    const k = Math.min(1, dt / CONFIG.CAM_FOLLOW_LERP)
+    const k = 1 - Math.exp(-dt / CONFIG.CAM_FOLLOW_LERP) // frame-rate independent
     this.camera.position.lerp(pos, k)
     this.aim.lerp(look, k)
     this.camera.lookAt(this.aim)
@@ -82,17 +82,15 @@ export class CameraRig {
   }
 
   private targets(player: Player, h: Vec2): { pos: THREE.Vector3; look: THREE.Vector3 } {
+    // Follow lane changes only partway (the road stays steady and the runner
+    // visibly moves across it), and rise a little with jumps.
+    const r = { x: -h.z, z: h.x } // right of the SMOOTHED heading, so corners stay continuous
+    const back = player.lateral * (1 - CONFIG.CAM_LATERAL_FOLLOW)
     const p = player.position
-    const pos = new THREE.Vector3(
-      p.x - h.x * CONFIG.CAM_BACK,
-      CONFIG.CAM_HEIGHT,
-      p.z - h.z * CONFIG.CAM_BACK,
-    )
-    const look = new THREE.Vector3(
-      p.x + h.x * CONFIG.CAM_LOOK_AHEAD,
-      1.2,
-      p.z + h.z * CONFIG.CAM_LOOK_AHEAD,
-    )
+    const ax = p.x - r.x * back
+    const az = p.z - r.z * back
+    const pos = new THREE.Vector3(ax - h.x * CONFIG.CAM_BACK, CONFIG.CAM_HEIGHT + p.y * 0.35, az - h.z * CONFIG.CAM_BACK)
+    const look = new THREE.Vector3(ax + h.x * CONFIG.CAM_LOOK_AHEAD, 1.2 + p.y * 0.5, az + h.z * CONFIG.CAM_LOOK_AHEAD)
     return { pos, look }
   }
 }

@@ -8,8 +8,11 @@ export const CONFIG = {
   BASE_SPEED: 11,
   MAX_SPEED: 22,
   SPEED_RAMP: 0.08, // m/s gained per second
-  JUMP_TIME: 0.6,
+  JUMP_TIME: 0.62,
   JUMP_HEIGHT: 1.6,
+  JUMP_APEX: 0.42, // fraction of the jump spent rising (quick up, longer fall)
+  JUMP_BUFFER_MS: 150, // a jump pressed this close to landing fires on touchdown
+  FAST_FALL_SPEED: 16, // m/s drop when you swipe down mid-air
   SLIDE_TIME: 0.7,
 
   // --- Track generation -----------------------------------------------------
@@ -76,7 +79,9 @@ export const CONFIG = {
   POTHOLE_PENALTY: 50, // ₦ lost when you hit a pothole
 
   // --- Player visuals & lane feel (Phase 1) --------------------------------
-  LANE_LERP: 0.12, // seconds-ish smoothing for lane changes
+  LANE_TIME: 0.16, // seconds for one lane change (eased glide; chains if you swipe again)
+  LANE_LEAN: 0.22, // max body roll (radians) into a lane change
+  PIVOT_SMOOTH: 0.12, // seconds to ease out the sideways step at a corner pivot
   PLAYER_RADIUS: 0.45, // collider half-width (used from Phase 2)
   PLAYER_HEIGHT: 1.2,
 
@@ -89,7 +94,8 @@ export const CONFIG = {
   CAM_BACK: 7, // metres behind the player
   CAM_HEIGHT: 4.2,
   CAM_LOOK_AHEAD: 8, // metres ahead of the player the camera aims at
-  CAM_FOLLOW_LERP: 0.18, // position smoothing
+  CAM_FOLLOW_LERP: 0.12, // position smoothing (time constant, seconds)
+  CAM_LATERAL_FOLLOW: 0.6, // how much of a lane change the camera follows (0..1)
   CAM_YAW_LERP: 0.28, // seconds to ease the camera's yaw through a turn (smooth curve)
   CAM_FOV: 70, // base field of view
   CAM_FOV_KICK: 10, // extra FOV at top speed (sense of speed)
@@ -97,7 +103,7 @@ export const CONFIG = {
   SHAKE_CRASH: 0.7, // camera shake magnitude on a crash
 
   // --- Input ----------------------------------------------------------------
-  SWIPE_MIN_PX: 30,
+  SWIPE_MIN_PX: 26, // finger travel that counts as a swipe (fires mid-drag)
   SWIPE_MAX_MS: 300,
 
   // --- Leaderboard (project addition — overrides spec §14) ------------------

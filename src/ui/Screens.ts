@@ -31,6 +31,14 @@ export class Screens {
     return this.el !== null
   }
 
+  /** Show the primary button as waiting (e.g. while the runner model loads). */
+  setPrimaryBusy(label: string): void {
+    const b = this.el?.querySelector<HTMLButtonElement>('[data-primary]')
+    if (!b) return
+    b.textContent = label
+    b.disabled = true
+  }
+
   showStart(onStart: () => void): void {
     this.render(
       `

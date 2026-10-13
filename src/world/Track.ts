@@ -38,6 +38,7 @@ export class Track {
   private straightOnly = false
   private readonly scene: THREE.Scene
   private decorator: ((info: TileInfo) => void) | null = null
+  private landingNext = false // the next straight follows a turn → mark it `landing`
   private junctionListener: ((committed: TileInfo[]) => void) | null = null
   private marketExitListener: (() => void) | null = null
   private marketRemaining = 0
@@ -82,6 +83,7 @@ export class Track {
     this.bridgeRemaining = 0
     this.bridgeLen = 0
     this.bridgeKind = 'ikoyi'
+    this.landingNext = false
     this.straightsSinceBridge = 0
 
     // First tile: a straight heading north from the origin cell.
@@ -303,6 +305,7 @@ export class Track {
   private growStub(junction: TileInfo, dir: Vec2, cells: Cell[]): TileInfo[] {
     const out: TileInfo[] = []
     let prev = junction
+    this.landingNext = true // each branch's first tile is a landing
     for (const c of cells) {
       const t = this.makeTile('STRAIGHT', c, dir, dir)
       prev.next = t
@@ -370,6 +373,13 @@ export class Track {
       group,
       obstacles: [],
       pickups: [],
+    }
+    // Fair spawn: after any turn the camera is still swinging round, so the
+    // first straight gets no obstacles (≥ ~36 m of clear road past the pivot).
+    if (info.requiresTurn) this.landingNext = true
+    else if (this.landingNext) {
+      info.landing = true
+      this.landingNext = false
     }
     if ((type === 'STRAIGHT' || type === 'MARKET_ENTRY' || type === 'BRIDGE') && this.decorator)
       this.decorator(info)

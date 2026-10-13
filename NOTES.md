@@ -351,6 +351,34 @@ Goal: stronger Lagos/Nigeria vibe across assets.
   the atlas pothole cell (2.2 m decal over the unchanged 0.9 m collider).
 - Per straight tile: ~7 meshes (was 5). Shared materials/textures, never disposed.
 
+### Step A0 — curved paths + Y-fork interchanges (2026-10-13)
+- Plan: docs/PLAN_RUN_TO_WORK.md. Owner picks: middle lane at a Y = stumble +
+  steer (not crash); ordinary corners stay 90° pivots for now.
+- `src/world/Path.ts`: Y geometry. A `Y_FORK` tile spans 3 rows (60 m forward):
+  straight for `Y_SHARED` 14 m, then each branch S-curves one cell sideways
+  (smoothstep) and carries on in the entry heading; branches end 2 columns
+  apart. Distances are ARC LENGTH (`Y_LEN` ≈ 64.9 m) via a lookup table.
+- `TileInfo` gained `len` (per-tile path length), `fork.side`, `extraCells`
+  (the 6 extra grid cells a Y occupies), `orphans` (untaken branch stubs, kept
+  visible until the Y recycles — no dead-end popping out of view).
+- Track: `tryYFork` (area must be free + not touching other roads) is tried
+  before the old `tryJunction` (now only a fallback; 0 fallbacks seen in 30
+  simulated tracks). `commit` on a Y sets `fork.side` and keeps exitDir.
+  `removeTile` frees extra cells + orphans (recycle, reset, runway).
+- Player: commits at `Y_COMMIT` 12 m by lane (left/right lane → that branch;
+  middle → `stumble()` + `onForkMiddle` toast, branch = last lateral swipe,
+  default R). Position/heading come from `forkLocal` on a Y, so the heading is
+  continuous and lanes follow the curve. Per-tile `len` for tile crossing.
+- Interchange.ts: approach + 2 branch asphalt ribbons (world-planar UVs, same
+  textures), dashes/yellow edges that split at the painted nose, grass gore
+  island with kerbs + yellow/black crash barrels, green sign gantry (atlas of
+  destinations ↖/↗), painted lane arrows, grass verges, b/w kerbs, lamps.
+- Game/Thief: arrows, thief position, police escort and Nero lookahead use
+  `forkLocal` / per-tile lengths. Start-screen hint updated.
+- Verified by stepping the game loop at 60 fps: left lane → L, right → R,
+  middle → stumble (slow 0.5) + steer; smooth through the curve and out
+  (max step 0.23 m vs 0.20 median, excl. lane changes); thief on hinted branch.
+
 ### Feel pass — runner swap, fair turns, Subway-Surfers movement (2026-10-13)
 - Owner: "the runner figure changed". Cause: the procedural stand-in showed for
   ~13 s until the 2.2 MB GLB arrived (its request only started ~3 s in), then

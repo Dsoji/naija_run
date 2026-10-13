@@ -7,6 +7,7 @@ import { CONFIG } from '../config'
 import type { Track } from '../world/Track'
 import type { Clock } from '../core/Clock'
 import { buildHumanoid } from '../world/Humanoid'
+import { Y_COMMIT, forkLocal } from '../world/Path'
 import { loadRunnerModel, type RunnerModel, type RunnerClip } from '../world/RunnerModel'
 import {
   type Side,
@@ -45,6 +46,8 @@ export class Player {
   private readonly pivotOffset = new THREE.Vector3() // eases the corner instead of a lateral jump
   private readonly lastBase = new THREE.Vector3()
   private justPivoted: Vec2 | null = null // heading before the pivot (set for one frame)
+  private lastLateral: Side = 'R' // last lane swipe — picks the branch from the middle lane at a Y
+  private forkHeading: Vec2 | null = null // continuous heading while on a Y-fork curve
 
   currentIndex = 0
   distAlong = 0
@@ -76,6 +79,7 @@ export class Player {
   private readonly clock: Clock
   private readonly onCrash: () => void
   private readonly onJunctionTurn: (correct: boolean) => void
+  private readonly onForkMiddle: () => void
 
   constructor(
     scene: THREE.Scene,
@@ -83,11 +87,13 @@ export class Player {
     clock: Clock,
     onCrash: () => void,
     onJunctionTurn: (correct: boolean) => void = () => {},
+    onForkMiddle: () => void = () => {},
   ) {
     this.track = track
     this.clock = clock
     this.onCrash = onCrash
     this.onJunctionTurn = onJunctionTurn
+    this.onForkMiddle = onForkMiddle
     // Sims-style runner: Super Eagles green jersey, white shorts (flag nod).
     const human = buildHumanoid({
       shirt: new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 }),
@@ -154,6 +160,8 @@ export class Player {
     this.jumpBufferedUntil = 0
     this.pivotOffset.set(0, 0, 0)
     this.justPivoted = null
+    this.lastLateral = 'R'
+    this.forkHeading = null
     this.currentIndex = 0
     this.distAlong = 0
     this.distance = 0
@@ -180,6 +188,7 @@ export class Player {
     return this.group.position
   }
   get heading(): Vec2 {
+    if (this.forkHeading) return this.forkHeading
     return this.distAlong > HALF && this.pivoted ? this.currentTile.exitDir : this.dir
   }
   /** Lateral offset (metres, right of travel) — for obstacle collision. */
@@ -265,6 +274,7 @@ export class Player {
 
   private handleLateral(side: Side): void {
     if (this.state === 'DEAD') return
+    this.lastLateral = side
     const tile = this.currentTile
     const allowed = this.turnSideAllowed(tile, side)
     if (!allowed) {
@@ -349,12 +359,28 @@ export class Player {
       }
     }
 
+    // Y-fork: your lane picks the branch. The middle lane clips the crash
+    // barrels at the gore — a stumble — and goes the way you last swiped.
+    if (tile.type === 'Y_FORK' && tile.fork && !tile.fork.side && this.distAlong >= Y_COMMIT) {
+      let side: Side
+      if (this.lane < 0) side = 'L'
+      else if (this.lane > 0) side = 'R'
+      else {
+        side = this.lastLateral
+        this.stumble()
+        this.onForkMiddle()
+      }
+      this.onJunctionTurn(side === tile.correct)
+      this.track.commit(side)
+    }
+
     // Cross into the next tile.
-    if (this.distAlong >= CONFIG.TILE_LEN) {
+    const len = tile.len ?? CONFIG.TILE_LEN
+    if (this.distAlong >= len) {
       const next = this.currentIndex + 1
       if (next < this.track.committed.length) {
         this.currentIndex = next
-        this.distAlong -= CONFIG.TILE_LEN
+        this.distAlong -= len
         this.turnLocked = false
         this.pivoted = false
       } else {
@@ -391,10 +417,15 @@ export class Player {
   private updatePose(dt: number, move: number): void {
     const tile = this.currentTile
     const center = cellCenter(tile.cell)
-    const heading = this.heading
     const pos = new THREE.Vector3()
 
-    if (this.distAlong <= HALF && tile.requiresTurn) {
+    this.forkHeading = null
+    if (tile.type === 'Y_FORK') {
+      const side = tile.fork?.side === 'L' ? -1 : tile.fork?.side === 'R' ? 1 : 0
+      const p = forkLocal(tile.entryDir, this.distAlong, side)
+      pos.copy(center).add(p.pos)
+      this.forkHeading = p.heading
+    } else if (this.distAlong <= HALF && tile.requiresTurn) {
       const entryEdge = center.clone().addScaledVector(toV3(tile.entryDir), -HALF)
       pos.copy(entryEdge).addScaledVector(toV3(tile.entryDir), this.distAlong)
     } else if (tile.requiresTurn) {
@@ -403,6 +434,8 @@ export class Player {
       const entryEdge = center.clone().addScaledVector(toV3(tile.entryDir), -HALF)
       pos.copy(entryEdge).addScaledVector(toV3(tile.entryDir), this.distAlong)
     }
+
+    const heading = this.heading // after the path sample (continuous on a Y-fork)
 
     // Lane glide: a fixed-time ease-out (snappy start, soft landing), like
     // Subway Surfers — not an exponential creep that never quite arrives.

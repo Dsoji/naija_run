@@ -11,6 +11,7 @@ import { type Side, type TileInfo, type Vec2, cellCenter, rightOf, turn } from '
 import { buildThief, buildDanfo } from '../world/models'
 import type { Track } from '../world/Track'
 import type { Player } from '../player/Player'
+import { forkLocal, Y_SHARED } from '../world/Path'
 
 const HALF = CONFIG.TILE_LEN / 2
 
@@ -88,6 +89,16 @@ export class Thief {
     if (junction.thiefHint === undefined) {
       junction.thiefHint = this.decideHint(junction, chaseValue)
     }
+    if (junction.type === 'Y_FORK') {
+      // Down the hinted branch of the Y, facing along its curve.
+      const p = forkLocal(junction.entryDir, Y_SHARED + 24, junction.thiefHint === 'L' ? -1 : 1)
+      const c = cellCenter(junction.cell)
+      this.group.position.set(c.x + p.pos.x, 0, c.z + p.pos.z)
+      this.group.rotation.y = Math.atan2(-p.heading.x, -p.heading.z)
+      this.group.visible = true
+      this.visible = true
+      return true
+    }
     const dir = turn(junction.entryDir, junction.thiefHint)
     const center = cellCenter(junction.cell)
     // A little way down the hinted branch, so it reads as "he went that way".
@@ -111,7 +122,7 @@ export class Thief {
   private nextJunction(track: Track, fromIndex: number): TileInfo | null {
     const tiles = track.committed
     for (let i = fromIndex + 1; i < tiles.length; i++) {
-      if (tiles[i].type === 'T_JUNCTION') return tiles[i]
+      if (tiles[i].type === 'T_JUNCTION' || tiles[i].type === 'Y_FORK') return tiles[i]
     }
     return null
   }

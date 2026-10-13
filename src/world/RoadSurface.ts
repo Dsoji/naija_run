@@ -20,10 +20,10 @@ import { blotch, crack, grain, lcg, makeCanvas, pick, rand, toTexture, wear, wra
 const HALF = CONFIG.TILE_LEN / 2
 const ROAD_HALF = CONFIG.ROAD_W / 2
 
-const ASPHALT_M = 4 // metres covered by one asphalt texture repeat (divides TILE_LEN)
+export const ASPHALT_M = 4 // metres covered by one asphalt texture repeat (divides TILE_LEN)
 const PAVER_M = 2 // metres per sidewalk paver repeat
-const KERB_M = 2 // one black + one white kerb stone
-const DASH_M = 5 // lane-dash period: 3 m paint, 2 m gap
+export const KERB_M = 2 // one black + one white kerb stone
+export const DASH_M = 5 // lane-dash period: 3 m paint, 2 m gap
 const GRIME_M = 10 // oil-drip / gutter-sand repeat
 const KERB_W = 0.22
 const KERB_H = 0.27
@@ -123,8 +123,8 @@ function paintKerb(): HTMLCanvasElement {
 // --- road markings: [white dash | yellow solid] columns, v = along ---------
 const MARK_W = 128
 const MARK_H = 512
-const WHITE_U: [number, number] = [8 / MARK_W, 56 / MARK_W]
-const YELLOW_U: [number, number] = [72 / MARK_W, 120 / MARK_W]
+export const WHITE_U: [number, number] = [8 / MARK_W, 56 / MARK_W]
+export const YELLOW_U: [number, number] = [72 / MARK_W, 120 / MARK_W]
 function paintMarkings(): HTMLCanvasElement {
   const [cv, ctx] = makeCanvas(MARK_W, MARK_H)
   const dash = MARK_H * (3 / DASH_M)
@@ -565,14 +565,14 @@ const texGrime = toTexture(paintGrime(), false, true)
 const texAtlas = toTexture(paintAtlas(), false, false)
 const texBump = toTexture(paintBump(), true, false)
 
-const matAsphalt = new THREE.MeshStandardMaterial({
+export const matAsphalt = new THREE.MeshStandardMaterial({
   map: texAsphalt,
   bumpMap: texAsphalt,
   bumpScale: 0.6,
   roughness: 0.95,
 })
 const overlay = { polygonOffset: true, roughness: 0.9 } as const
-const matMarkings = new THREE.MeshStandardMaterial({
+export const matMarkings = new THREE.MeshStandardMaterial({
   ...overlay,
   map: texMarkings,
   alphaTest: 0.35,
@@ -596,7 +596,7 @@ export const matDecal = new THREE.MeshStandardMaterial({
   polygonOffsetFactor: -3,
   polygonOffsetUnits: -3,
 })
-const matKerb = new THREE.MeshStandardMaterial({ map: texKerb, roughness: 0.9 })
+export const matKerb = new THREE.MeshStandardMaterial({ map: texKerb, roughness: 0.9 })
 const matPavers = new THREE.MeshStandardMaterial({ map: texPavers, roughness: 1 })
 const matSlabSide = new THREE.MeshStandardMaterial({ color: 0x8d8a83, roughness: 1 })
 /** Painted speed bump ("road pump"); u repeats every BUMP_STRIPE_M across the road. */

@@ -22,6 +22,7 @@ import {
   turn,
 } from './Tile'
 import { type BridgeKind, addBridgeSection } from './Bridges'
+import { Y_LEN } from './Path'
 
 const JUNCTION_STUB = 3 // tiles grown down each branch before the player commits
 
@@ -68,10 +69,7 @@ export class Track {
   }
 
   reset(): void {
-    for (const t of this.committed) {
-      this.scene.remove(t.group)
-      disposeTile(t)
-    }
+    for (const t of this.committed) this.removeTile(t)
     if (this.pending) this.disposeStubs([...this.pending.left, ...this.pending.right])
     this.committed.length = 0
     this.occupied.clear()
@@ -111,10 +109,17 @@ export class Track {
     const chosen = side === 'L' ? left : right
     const other = side === 'L' ? right : left
 
-    junction.exitDir = turn(junction.entryDir, side)
+    if (junction.type === 'Y_FORK') {
+      // Both branches keep the entry heading. Leave the untaken branch standing
+      // (it's in view to the side) until this tile recycles.
+      junction.fork = { side }
+      junction.orphans = other
+    } else {
+      junction.exitDir = turn(junction.entryDir, side)
+      this.disposeStubs(other)
+    }
     junction.next = chosen[0]
     for (const t of chosen) this.committed.push(t)
-    this.disposeStubs(other)
 
     // If this is Nero's market branch, continue laying market tiles beyond the
     // already-themed stubs until the section reaches MARKET_LEN.
@@ -136,12 +141,7 @@ export class Track {
       this.disposeStubs([...this.pending.left, ...this.pending.right])
       this.pending = null
     }
-    for (let i = this.committed.length - 1; i > fromIndex; i--) {
-      const t = this.committed[i]
-      this.scene.remove(t.group)
-      disposeTile(t)
-      this.occupied.delete(cellKey(t.cell))
-    }
+    for (let i = this.committed.length - 1; i > fromIndex; i--) this.removeTile(this.committed[i])
     this.committed.length = fromIndex + 1
     this.committed[fromIndex].next = undefined
     this.straightOnly = true
@@ -229,7 +229,10 @@ export class Track {
     }
 
     // Time for a junction?
-    if (this.straightsSinceJunction >= this.nextJunctionAt && this.tryJunction(after, cell, entry)) {
+    if (
+      this.straightsSinceJunction >= this.nextJunctionAt &&
+      (this.tryYFork(after, cell, entry) || this.tryJunction(after, cell, entry))
+    ) {
       return
     }
 
@@ -260,6 +263,55 @@ export class Track {
       this.pushTile(this.makeTile('STRAIGHT', cell, entry, entry), after)
     }
     this.straightsSinceJunction++
+  }
+
+  /** Try to place a Y-fork: the road splits and both branches carry on in the
+   *  entry heading, one cell to either side (see Path.ts). The fork covers the
+   *  entry cell, the 3 cells of the next row and the 3 of the row after; the
+   *  branches continue from the outer cells of that last row. */
+  private tryYFork(after: TileInfo, cell: Cell, entry: Vec2): boolean {
+    const left = rotateLeft(entry)
+    const right = rotateRight(entry)
+    const row1 = step(cell, entry)
+    const row2 = step(row1, entry)
+    const area: Cell[] = [cell, row1, step(row1, left), step(row1, right), row2, step(row2, left), step(row2, right)]
+    if (!this.areaPlaceable(area, after.cell)) return false
+    const leftEnd = step(row2, left)
+    const rightEnd = step(row2, right)
+    const leftCells = this.branchCells(leftEnd, entry)
+    const rightCells = this.branchCells(rightEnd, entry)
+    if (!leftCells || !rightCells) return false
+
+    const junction = this.makeTile('Y_FORK', cell, entry, entry)
+    junction.len = Y_LEN
+    junction.exitDirL = entry
+    junction.exitDirR = entry
+    junction.fork = {}
+    junction.extraCells = area.slice(1)
+    for (const c of junction.extraCells) this.occupied.add(cellKey(c))
+    junction.correct = Math.random() < 0.5 ? 'L' : 'R'
+    this.pushTile(junction, after)
+
+    const l = this.growStub(junction, entry, leftCells)
+    const r = this.growStub(junction, entry, rightCells)
+    this.pending = { junction, left: l, right: r }
+    this.straightsSinceJunction = 0
+    if (this.junctionListener) this.junctionListener(this.committed)
+    return true
+  }
+
+  /** Every cell free, and no road next to the area except the tile we come from. */
+  private areaPlaceable(area: Cell[], from: Cell): boolean {
+    const inArea = (c: Cell) => area.some((a) => a.gx === c.gx && a.gz === c.gz)
+    for (const c of area) {
+      if (!this.isFree(c)) return false
+      for (const d of [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }]) {
+        const n = step(c, d)
+        if (inArea(n) || (n.gx === from.gx && n.gz === from.gz)) continue
+        if (this.occupied.has(cellKey(n))) return false
+      }
+    }
+    return true
   }
 
   /** Try to place a T-junction with buildable stubs on both branches. */
@@ -399,13 +451,22 @@ export class Track {
     }
   }
 
+  /** Take a committed tile out of the world (and any untaken-branch stubs it holds). */
+  private removeTile(t: TileInfo): void {
+    this.scene.remove(t.group)
+    disposeTile(t)
+    this.occupied.delete(cellKey(t.cell))
+    for (const c of t.extraCells ?? []) this.occupied.delete(cellKey(c))
+    if (t.orphans) {
+      this.disposeStubs(t.orphans)
+      t.orphans = undefined
+    }
+  }
+
   private recycle(currentIndex: number): number {
     let removed = 0
     while (currentIndex - removed > CONFIG.TILES_BEHIND) {
-      const t = this.committed[removed]
-      this.scene.remove(t.group)
-      disposeTile(t)
-      this.occupied.delete(cellKey(t.cell))
+      this.removeTile(this.committed[removed])
       removed++
     }
     if (removed > 0) this.committed.splice(0, removed)

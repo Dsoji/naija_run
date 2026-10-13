@@ -9,9 +9,10 @@ import { CONFIG } from '../config'
 import type { EncounterDef } from '../encounters/types'
 import { addStreetScenery, addMarketScenery } from './Scenery'
 import type { BridgeKind } from './Bridges'
+import { addYFork } from './Interchange'
 import { addStraightRoad, addJunctionRoad } from './RoadSurface'
 
-export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'MARKET_ENTRY' | 'BRIDGE'
+export type TileType = 'STRAIGHT' | 'TURN_L' | 'TURN_R' | 'T_JUNCTION' | 'Y_FORK' | 'MARKET_ENTRY' | 'BRIDGE'
 export type Side = 'L' | 'R'
 
 /** Unit direction on the XZ plane. Components are each -1, 0 or +1. */
@@ -115,6 +116,14 @@ export interface TileInfo {
   shortcutBranch?: Side // junction branch turned into a market shortcut (Phase 5)
   market?: boolean // this tile is part of a market section
   landing?: boolean // first straight after a turn/junction — kept clear of obstacles
+  /** Path length in metres (default TILE_LEN). A Y_FORK is longer (Path.Y_LEN). */
+  len?: number
+  /** Y_FORK only: the branch taken, set when the player commits. */
+  fork?: { side?: Side }
+  /** Extra grid cells this tile occupies beyond `cell` (a Y_FORK spans 3 rows). */
+  extraCells?: Cell[]
+  /** Y_FORK only: the untaken branch's stub tiles, kept visible until this tile recycles. */
+  orphans?: TileInfo[]
   bridge?: BridgeKind // this tile is part of a bridge crossing (which one)
   group: THREE.Group
   /** The next tile along the committed path (set when the follower is placed). */
@@ -143,6 +152,12 @@ function buildRoad(type: TileType, entryDir: Vec2, dirsOpen: Vec2[]): THREE.Grou
     // Bridge deck: road + markings only. The Track dresses it (Bridges.ts)
     // once it knows which bridge and where in the crossing this tile is.
     addStraightRoad(g, entryDir, 'bridge')
+    return g
+  }
+
+  if (type === 'Y_FORK') {
+    // Expressway-style split: approach, two S-curving branches, gore island, gantry.
+    addYFork(g, entryDir)
     return g
   }
 

@@ -11,6 +11,7 @@ import { cellCenter, rightOf, turn, type EncounterInstance, type ObstacleBox, ty
 import { buildArrow, buildPoliceCar, buildNPC } from '../world/models'
 import { preloadVehicles, policeGLB } from '../world/VehicleModels'
 import { BRIDGE_NAMES, tickWater } from '../world/Bridges'
+import { Y_COMMIT, Y_SHARED, forkLocal } from '../world/Path'
 import { Track } from '../world/Track'
 import { Obstacles } from '../world/Obstacles'
 import { Pickups } from '../world/Pickups'
@@ -181,6 +182,11 @@ export class Game {
       this.clock,
       () => this.onCrash(),
       (correct) => this.onJunctionTurn(correct),
+      () => {
+        // Middle lane at a Y-fork: clipped the gore barrels.
+        this.rig.shake(CONFIG.SHAKE_STUMBLE)
+        this.hud.toast('Choose your side! 😵', 'info')
+      },
     )
     this.rig = new CameraRig(this.camera)
     this.screens = new Screens(hooks.mount)
@@ -422,10 +428,17 @@ export class Game {
   /** Place the glowing "this way" arrow on one branch of a junction (child of
    *  the junction group, so it survives branch disposal on commit). */
   private markJunction(junction: TileInfo, side: Side): void {
-    const dir = turn(junction.entryDir, side)
     const arrow = buildArrow()
-    arrow.position.set(dir.x * (CONFIG.TILE_LEN / 2 + 5), 0, dir.z * (CONFIG.TILE_LEN / 2 + 5))
-    arrow.rotateOnWorldAxis(UP_AXIS, Math.atan2(dir.x, dir.z))
+    if (junction.type === 'Y_FORK') {
+      // Glowing arrow on the marked branch, just past the split.
+      const p = forkLocal(junction.entryDir, Y_SHARED + 14, side === 'L' ? -1 : 1)
+      arrow.position.copy(p.pos)
+      arrow.rotateOnWorldAxis(UP_AXIS, Math.atan2(p.heading.x, p.heading.z))
+    } else {
+      const dir = turn(junction.entryDir, side)
+      arrow.position.set(dir.x * (CONFIG.TILE_LEN / 2 + 5), 0, dir.z * (CONFIG.TILE_LEN / 2 + 5))
+      arrow.rotateOnWorldAxis(UP_AXIS, Math.atan2(dir.x, dir.z))
+    }
     junction.group.add(arrow)
   }
 
@@ -481,7 +494,7 @@ export class Game {
     const next = this.track.committed[this.player.currentIndex + 1]
     if (next) {
       for (const ob of next.obstacles) {
-        consider(ob, CONFIG.TILE_LEN - this.player.distAlong + ob.along)
+        consider(ob, (tile.len ?? CONFIG.TILE_LEN) - this.player.distAlong + ob.along)
       }
     }
     if (!best) return null
@@ -563,13 +576,14 @@ export class Game {
     let local = this.player.distAlong
     let remaining = ahead
     while (i < tiles.length) {
-      const avail = CONFIG.TILE_LEN - local
+      const len = tiles[i].len ?? CONFIG.TILE_LEN
+      const avail = len - local
       if (remaining <= avail) {
         local += remaining
         break
       }
       if (i + 1 >= tiles.length) {
-        local = CONFIG.TILE_LEN
+        local = len
         break
       }
       remaining -= avail
@@ -578,6 +592,13 @@ export class Game {
     }
     const tile = tiles[Math.min(i, tiles.length - 1)]
     const pending = this.track.pendingJunction()
+    if (tile.type === 'Y_FORK') {
+      // Follow the curve of the branch taken; before the split, stay on the approach.
+      const side = tile.fork?.side === 'L' ? -1 : tile.fork?.side === 'R' ? 1 : 0
+      const p = forkLocal(tile.entryDir, side === 0 ? Math.min(local, Y_COMMIT) : local, side)
+      const c = cellCenter(tile.cell)
+      return { x: c.x + p.pos.x, z: c.z + p.pos.z, yaw: Math.atan2(-p.heading.x, -p.heading.z) }
+    }
     if (tile === pending && local > HALF) local = HALF // hold at the corner
     const useExit = tile.requiresTurn && local > HALF && tile !== pending
     const dir: Vec2 = useExit ? tile.exitDir : tile.entryDir
